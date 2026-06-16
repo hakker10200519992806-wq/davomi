@@ -4525,16 +4525,22 @@ body.dark .tg-topbar-toggle{color:#a8dadc}
 .tg-topbar-name{font-size:14px;font-weight:700;flex:1}
 .tg-topbar-info{font-size:11px;color:var(--gray)}
 /* Messages area */
-.tg-msgs{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:3px;scroll-behavior:smooth}
-.tg-msg-wrap{display:flex;flex-direction:column;max-width:65%;position:relative}
+.tg-msgs{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:6px;scroll-behavior:smooth}
+.tg-msg-wrap{display:flex;flex-direction:column;max-width:70%;position:relative}
 .tg-msg-wrap.mine{align-self:flex-end;align-items:flex-end}
 .tg-msg-wrap.other{align-self:flex-start;align-items:flex-start}
-.tg-msg-sender{font-size:11px;font-weight:600;color:var(--blue);margin-bottom:2px;padding-left:4px;display:flex;align-items:center;gap:4px;cursor:pointer}
-.tg-msg-sender:hover{text-decoration:underline}
+/* Other's message row: avatar + content */
+.tg-msg-row{display:flex;align-items:flex-start;gap:8px}
+.tg-msg-avatar{width:34px;height:34px;border-radius:50%;background:var(--green);color:white;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;cursor:pointer;margin-top:2px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.tg-msg-avatar:hover{opacity:.85}
+.tg-msg-content{display:flex;flex-direction:column;min-width:0}
+.tg-msg-sender-name{font-size:11px;font-weight:700;color:var(--green);margin-bottom:2px;padding-left:2px;cursor:pointer}
+.tg-msg-sender-name:hover{text-decoration:underline}
 .tg-msg-bubble{padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.5;word-break:break-word;position:relative;min-width:60px}
 .tg-msg-wrap.mine .tg-msg-bubble{background:#3b82c4;color:white;border-bottom-right-radius:4px}
-.tg-msg-wrap.other .tg-msg-bubble{background:white;color:#212529;border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.tg-msg-wrap.other .tg-msg-bubble{background:white;color:#212529;border-bottom-left-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 body.dark .tg-msg-wrap.other .tg-msg-bubble{background:#2d2b45;color:#e0deef}
+.tg-msg-text{margin:0}
 .tg-msg-img{max-width:260px;max-height:200px;border-radius:8px;cursor:pointer;margin-bottom:4px;display:block}
 .tg-msg-img:hover{opacity:.9}
 .tg-msg-meta{display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:3px}
@@ -4948,21 +4954,26 @@ function _renderMsg(container, msg){
   wrap.id='msg-'+msg.id;
   
   let html='';
-  // Sender name (only for others)
+  
   if(!isMe){
-    html+=`<div class="tg-msg-sender" onclick="showProfilePopup(${msg.sender_id},event)">
-      <span style="font-size:14px">${esc(msg.sender_avatar||'👤')}</span> ${esc(msg.sender_name)}</div>`;
+    // Other person's message: avatar on left + bubble
+    html+=`<div class="tg-msg-row">`;
+    html+=`<div class="tg-msg-avatar" onclick="showProfilePopup(${msg.sender_id},event)" title="${esc(msg.sender_name)}">${esc(msg.sender_avatar||'👤')}</div>`;
+    html+=`<div class="tg-msg-content">`;
+    html+=`<div class="tg-msg-sender-name" onclick="showProfilePopup(${msg.sender_id},event)">${esc(msg.sender_name)}</div>`;
+    html+=`<div class="tg-msg-bubble">`;
+  } else {
+    // My message: just bubble aligned right
+    html+=`<div class="tg-msg-bubble">`;
   }
   
-  // Bubble
-  html+='<div class="tg-msg-bubble">';
   // Image
   if(msg.image_url){
     html+=`<img class="tg-msg-img" src="${esc(msg.image_url)}" onclick="openLightbox('${esc(msg.image_url)}');event.stopPropagation()">`;
   }
   // Content
   if(msg.content){
-    html+=`<div>${esc(msg.content).replace(/\n/g,'<br>')}</div>`;
+    html+=`<div class="tg-msg-text">${esc(msg.content).replace(/\n/g,'<br>')}</div>`;
   }
   // Meta
   html+=`<div class="tg-msg-meta">`;
@@ -4970,6 +4981,10 @@ function _renderMsg(container, msg){
   html+=`<span class="tg-msg-time">${msg.created_at}</span>`;
   html+=`</div>`;
   html+=`</div>`; // end bubble
+  
+  if(!isMe){
+    html+=`</div></div>`; // end tg-msg-content + tg-msg-row
+  }
   
   // Actions (only for own messages)
   if(isMe){
