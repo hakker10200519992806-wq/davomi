@@ -58,6 +58,46 @@ input,textarea,select{outline:none;font-family:inherit}
 }
 .split-toggle:hover{filter:brightness(1.1)}
 
+/* ── Dropdown Menu (topbar & toolbar) ── */
+.tb-dropdown{position:relative;display:inline-flex;align-items:center}
+.tb-dropdown-menu{
+  display:none;position:absolute;top:100%;right:0;z-index:500;
+  min-width:180px;max-height:400px;overflow-y:auto;
+  background:var(--dark);border:1px solid rgba(255,255,255,.15);
+  border-radius:10px;padding:6px;margin-top:6px;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+  flex-direction:column;gap:2px;
+}
+.tb-dropdown-menu.show{display:flex}
+.tb-dropdown:hover .tb-dropdown-menu,
+.tb-dropdown.pinned .tb-dropdown-menu{display:flex}
+.tb-dd-item{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 14px;border-radius:7px;font-size:13px;font-weight:600;
+  color:rgba(255,255,255,.9);background:transparent;
+  border:none;cursor:pointer;transition:all .12s;text-align:left;width:100%;
+  white-space:nowrap;
+}
+.tb-dd-item:hover{background:rgba(255,255,255,.15);color:#fff}
+/* Toolbar (pastki) dropdown — oq fon */
+.toolbar-dropdown{display:inline-flex;vertical-align:middle}
+.toolbar-dd-menu{
+  background:white!important;border:1.5px solid var(--border)!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.15)!important;
+  top:calc(100% + 4px);left:0;right:auto;
+}
+.toolbar-dd-menu .tb-dd-item{
+  color:#333!important;font-weight:600;
+}
+.toolbar-dd-menu .tb-dd-item:hover{
+  background:var(--light)!important;color:var(--blue)!important;
+}
+body.dark .toolbar-dd-menu{
+  background:#1c1a2e!important;border-color:#3d3b5a!important;
+}
+body.dark .toolbar-dd-menu .tb-dd-item{color:#e0deef!important}
+body.dark .toolbar-dd-menu .tb-dd-item:hover{background:#2d2b45!important;color:#a78bfa!important}
+
 /* ── Main Area ── */
 #main{display:flex;flex:1;overflow:hidden}
 
@@ -1180,17 +1220,24 @@ body.dark mark{background:#854d0e;color:#fef9c3;}
   <button class="tb-btn" id="btn-export-zip" style="display:none" onclick="openZipExportModal()" title="HTML sayt sifatida ZIP">📦 HTML Sayt</button>
   <button class="split-toggle" onclick="toggleStudentPanel()">👁 O'quvchi paneli</button>
   <button class="tb-btn" onclick="openTeacherPreview()" style="background:rgba(255,255,255,.12)">🔍 Preview</button>
-  <button class="tb-btn" onclick="openPanel('chat')"       id="tbtn-chat"       style="background:rgba(255,255,255,.08)" title="Chat">💬 Chat</button>
-  <button class="tb-btn" onclick="openPanel('announce')"   id="tbtn-announce"   style="background:rgba(255,255,255,.08)" title="Elonlar">📢 Elonlar</button>
-  <button class="tb-btn" onclick="openPanel('schedule')"   id="tbtn-schedule"   style="background:rgba(255,255,255,.08)" title="Jadval">📅 Jadval</button>
-  <button class="tb-btn" onclick="openPanel('resources')"  id="tbtn-resources"  style="background:rgba(255,255,255,.08)" title="Resurslar">📚 Resurslar</button>
-  <button class="tb-btn" onclick="openPanel('attendance')" id="tbtn-attendance" style="background:rgba(255,255,255,.08)" title="Davomat">📊 Davomat</button>
-  <button class="tb-btn" onclick="openPanel('videos')"     id="tbtn-videos"     style="background:rgba(255,255,255,.08)" title="Videolar">🎬 Video</button>
-  <button class="tb-btn" onclick="openPanel('groups')"     id="tbtn-groups"     style="background:rgba(255,255,255,.08)" title="Guruhlar">👥 Guruhlar</button>
-  <button class="tb-btn" onclick="openPanel('progress')"   id="tbtn-progress"   style="background:rgba(255,255,255,.08)" title="Progress">📊 Progress</button>
-  <button class="tb-btn" onclick="openPanel('homework_teacher')" id="tbtn-homework" style="background:rgba(255,255,255,.08)" title="Vazifalar">📝 Vazifalar</button>
-  <button class="tb-btn" onclick="openPanel('online_test_teacher')" id="tbtn-test" style="background:rgba(255,255,255,.08)" title="Online test">⏱ Test</button>
-  <button class="tb-btn" onclick="openPanel('analytics')" id="tbtn-analytics" style="background:rgba(255,255,255,.08)" title="Analytics">📈 Analytics</button>
+  <button class="tb-btn" onclick="openPanel('chat')" id="tbtn-chat" style="background:rgba(255,255,255,.08)" title="Chat">💬 Chat</button>
+  <!-- Boshqa tugmalar — "Ko'proq" dropdown ichida -->
+  <div class="tb-dropdown" id="topbar-more-dropdown">
+    <button class="tb-btn tb-dropdown-toggle" onclick="toggleDropdown('topbar-more-dropdown')" title="Ko'proq">☰ Ko'proq</button>
+    <div class="tb-dropdown-menu">
+      <button class="tb-dd-item" onclick="openPanel('announce')"   id="tbtn-announce">📢 Elonlar</button>
+      <button class="tb-dd-item" onclick="openPanel('schedule')"   id="tbtn-schedule">📅 Jadval</button>
+      <button class="tb-dd-item" onclick="openPanel('resources')"  id="tbtn-resources">📚 Resurslar</button>
+      <button class="tb-dd-item" onclick="openPanel('attendance')" id="tbtn-attendance">📊 Davomat</button>
+      <button class="tb-dd-item" onclick="openPanel('videos')"     id="tbtn-videos">🎬 Video</button>
+      <button class="tb-dd-item" onclick="openPanel('groups')"     id="tbtn-groups">👥 Guruhlar</button>
+      <button class="tb-dd-item" onclick="openPanel('progress')"   id="tbtn-progress">📊 Progress</button>
+      <button class="tb-dd-item" onclick="openPanel('homework_teacher')" id="tbtn-homework">📝 Vazifalar</button>
+      <button class="tb-dd-item" onclick="openPanel('online_test_teacher')" id="tbtn-test">⏱ Test</button>
+      <button class="tb-dd-item" onclick="openPanel('analytics')" id="tbtn-analytics">📈 Analytics</button>
+      <button class="tb-dd-item" onclick="openTTSModal()">🔊 Matn o'qish</button>
+    </div>
+  </div>
   <!-- Qidiruv -->
   <input class="tb-search-inp" id="tb-search-inp" placeholder="🔎 Qidirish..."
     oninput="tbSearchDebounce(this.value)"
@@ -1202,7 +1249,6 @@ body.dark mark{background:#854d0e;color:#fef9c3;}
     <span class="pb-name" id="topbar-username"></span>
   </button>
   <button class="tb-btn" id="theme-btn" onclick="toggleTheme()" style="background:rgba(255,255,255,.08)" title="Mavzu">🌙</button>
-  <button class="tb-btn" onclick="openTTSModal()" style="background:rgba(255,255,255,.08)" title="Matn o'qish">🔊</button>
   <button class="tb-btn" onclick="logoutRole()" style="background:rgba(255,255,255,.08)">🚪</button>
 </div>
 
@@ -1224,6 +1270,20 @@ body.dark mark{background:#854d0e;color:#fef9c3;}
         <span class="urok-panel-label">📦 Darsni .urok faylga eksport qiling:</span>
         <button class="urok-btn green" onclick="exportCurrentLesson()">⬇ Yuklab olish (.urok)</button>
         <button class="urok-btn orange" onclick="openResultsScreen()">📊 Natijalarni ko'rish</button>
+        <!-- Qo'shimcha bloklar dropdown -->
+        <div class="tb-dropdown toolbar-dropdown" id="urok-more-blocks-dropdown" style="margin-left:auto">
+          <button class="urok-btn" onclick="toggleDropdown('urok-more-blocks-dropdown')" title="Ko'proq bloklar">➕ Ko'proq</button>
+          <div class="tb-dropdown-menu toolbar-dd-menu">
+            <button class="tb-dd-item" onclick="openAddBlockModal('memory_game')">🃏 Xotira o'yini</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('number_guess')">🔢 Son topish</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('anagram')">🧩 Anagram</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('flash_cards')">⚡ Tez xotira</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('dictation')">🎧 Diktant</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('memory_chain')">🔗 Zanjir xotira</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('role_dialog')">🎭 Rol dialog</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('media')">🎬 Audio/Video</button>
+          </div>
+        </div>
       </div>
       <span class="label">Blok qo'shish:</span>
       <button class="add-block-btn" style="color:#e63946;border-color:#e63946" onclick="openAddBlockModal('heading')">🔤 Sarlavha</button>
@@ -1238,14 +1298,20 @@ body.dark mark{background:#854d0e;color:#fef9c3;}
       <button class="add-block-btn" style="color:#888;border-color:#ccc" onclick="openAddBlockModal('table')">📊 Jadval</button>
       <button class="add-block-btn" style="color:#aaa;border-color:#ddd" onclick="openAddBlockModal('hr')">― Chiziq</button>
       <button class="add-block-btn" style="color:#0ea5e9;border-color:#0ea5e9;font-weight:800" onclick="openAddBlockModal('vocab_timer')">⏱ Lug'at+Test</button>
-      <button class="add-block-btn" style="color:#9333ea;border-color:#9333ea;font-weight:800" onclick="openAddBlockModal('memory_game')">🃏 Xotira o'yini</button>
-      <button class="add-block-btn" style="color:#ea580c;border-color:#ea580c;font-weight:800" onclick="openAddBlockModal('number_guess')">🔢 Son topish</button>
-      <button class="add-block-btn" style="color:#16a34a;border-color:#16a34a;font-weight:800" onclick="openAddBlockModal('anagram')">🧩 Anagram</button>
-      <button class="add-block-btn" style="color:#b45309;border-color:#b45309;font-weight:800" onclick="openAddBlockModal('flash_cards')">⚡ Tez xotira</button>
-      <button class="add-block-btn" style="color:#0369a1;border-color:#0369a1;font-weight:800" onclick="openAddBlockModal('dictation')">🎧 Diktant</button>
-      <button class="add-block-btn" style="color:#7c3aed;border-color:#7c3aed;font-weight:800" onclick="openAddBlockModal('memory_chain')">🔗 Zanjir xotira</button>
-      <button class="add-block-btn" style="color:#be123c;border-color:#be123c;font-weight:800" onclick="openAddBlockModal('role_dialog')">🎭 Rol dialog</button>
-      <button class="add-block-btn" style="color:#0f766e;border-color:#0f766e;font-weight:800" onclick="openAddBlockModal('media')">🎬 Audio/Video</button>
+      <!-- Qo'shimcha bloklar dropdown -->
+      <div class="tb-dropdown toolbar-dropdown" id="editor-more-blocks-dropdown">
+        <button class="add-block-btn tb-dropdown-toggle" style="color:#7c3aed;border-color:#7c3aed;font-weight:800" onclick="toggleDropdown('editor-more-blocks-dropdown')" title="Qo'shimcha bloklar">➕ Ko'proq</button>
+        <div class="tb-dropdown-menu toolbar-dd-menu">
+          <button class="tb-dd-item" onclick="openAddBlockModal('memory_game')">🃏 Xotira o'yini</button>
+          <button class="tb-dd-item" onclick="openAddBlockModal('number_guess')">🔢 Son topish</button>
+          <button class="tb-dd-item" onclick="openAddBlockModal('anagram')">🧩 Anagram</button>
+          <button class="tb-dd-item" onclick="openAddBlockModal('flash_cards')">⚡ Tez xotira</button>
+          <button class="tb-dd-item" onclick="openAddBlockModal('dictation')">🎧 Diktant</button>
+          <button class="tb-dd-item" onclick="openAddBlockModal('memory_chain')">🔗 Zanjir xotira</button>
+          <button class="tb-dd-item" onclick="openAddBlockModal('role_dialog')">🎭 Rol dialog</button>
+          <button class="tb-dd-item" onclick="openAddBlockModal('media')">🎬 Audio/Video</button>
+        </div>
+      </div>
     </div>
     <div id="blocks-container">
       <div id="blocks-empty">
@@ -1589,6 +1655,28 @@ const state = {
   lessons: [], currentLessonId: null, blocks: [],
   studentOpen: false, role: null, studentName: '', studentAnswers: {}
 };
+
+// ═══════════════════════════════════════════════════════════
+// DROPDOWN TOGGLE (hover + click)
+// ═══════════════════════════════════════════════════════════
+function toggleDropdown(dropdownId) {
+  const dd = document.getElementById(dropdownId);
+  if (!dd) return;
+  dd.classList.toggle('pinned');
+}
+// Tashqariga bosganida barcha dropdownlarni yopish
+document.addEventListener('click', function(e) {
+  document.querySelectorAll('.tb-dropdown.pinned').forEach(dd => {
+    if (!dd.contains(e.target)) dd.classList.remove('pinned');
+  });
+});
+// Dropdown ichidagi tugma bosilsa — menyu yopilsin
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('tb-dd-item')) {
+    const dd = e.target.closest('.tb-dropdown');
+    if (dd) dd.classList.remove('pinned');
+  }
+});
 
 // ═══════════════════════════════════════════════════════════
 // API
