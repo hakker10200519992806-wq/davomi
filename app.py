@@ -13,7 +13,7 @@ app = Flask(__name__,
             static_folder=STATIC)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DATA_DIR}/langlearn.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'langlearn-secret-2024'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'langlearn-secret-' + hashlib.sha256(os.urandom(16)).hexdigest()[:16])
 
 TEACHER_PASS_HASH = hashlib.sha256(b'200519992806').hexdigest()
 UROK_MAGIC   = b'UROKFILE'
@@ -282,7 +282,6 @@ def init_db():
               os.path.join(STATIC,'video'), os.path.join(STATIC,'resources'),
               os.path.join(STATIC,'avatars'), os.path.join(STATIC,'homework'),
               os.path.join(BASE_DIR,'templates')]:
-        os.makedirs(d, exist_ok=True)
         os.makedirs(d, exist_ok=True)
     with app.app_context():
         db.create_all()
@@ -554,7 +553,7 @@ def seed_demo():
         }),
         
         # Упражнение 1: Заполнение пропусков
-        (6, 'fill_blank', {
+        (7, 'fill_blank', {
             'title': 'Машқ 1: Мой, моя, моё ёки твой, твоя, твоё танланг',
             'bar_color': '#2a9d8f',
             'instruction': 'Тўғри жавобни танланг:',
@@ -568,7 +567,7 @@ def seed_demo():
         }),
         
         # Упражнение 2: Определите род слов
-        (7, 'fill_blank', {
+        (8, 'fill_blank', {
             'title': 'Машқ 2: Rod soznalarini aniqlang (он, она, оно)',
             'bar_color': '#2a9d8f',
             'instruction': 'Rod katugoriyasini toping:',
@@ -584,7 +583,7 @@ def seed_demo():
         }),
         
         # Упражнение 3: Переформулируйте предложения
-        (8, 'fill_blank', {
+        (9, 'fill_blank', {
             'title': 'Машқ 3: Gaplarni o\'zgartiring (Мной имя / Меня зовут)',
             'bar_color': '#2a9d8f',
             'instruction': 'Namuna: Мое имя - Наташа. → Меня зовут Наташа.',
@@ -597,7 +596,7 @@ def seed_demo():
         }),
         
         # Упражнение 5: Заполните пропуски в тексте
-        (12, 'fill_blank', {
+        (10, 'fill_blank', {
             'title': 'Машқ 5: Matnda prorskini to\'ldiring',
             'bar_color': '#2a9d8f',
             'instruction': 'Birgalik sozlarini tanlanib matnni to\'ldiring:',
@@ -609,7 +608,7 @@ def seed_demo():
         }),
         
         # Упражнение 6: Вставьте притяжательные местоимения
-        (13, 'fill_blank', {
+        (11, 'fill_blank', {
             'title': 'Машқ 6: Birgalik sozlarini to\'g\'ri joyga qo\'ying',
             'bar_color': '#2a9d8f',
             'instruction': 'мой, твой, наш, ваш so\'zlarini tanlanib to\'ldiring:',
@@ -622,7 +621,7 @@ def seed_demo():
         }),
         
         # Упражнение 7: Заполните пропуски
-        (14, 'fill_blank', {
+        (12, 'fill_blank', {
             'title': 'Машқ 7: Prorskini to\'ldiring',
             'bar_color': '#2a9d8f',
             'instruction': 'Birgalik sozlarini bilgan holda to\'ldiring:',
@@ -638,7 +637,7 @@ def seed_demo():
         }),
         
         # Упражнение 8: Обсуждение по примеру
-        (15, 'fill_blank', {
+        (13, 'fill_blank', {
             'title': 'Машқ 8: Namuna bo\'yicha dialog tuzilng',
             'bar_color': '#2a9d8f',
             'instruction': 'Namuna: Это мой подруга Синтия. → Её зовут Синтия. Её имя - Синтия.',
@@ -652,7 +651,7 @@ def seed_demo():
         }),
         
         # О себе - Open-ended questions
-        (16, 'fill_blank', {
+        (14, 'fill_blank', {
             'title': 'О себе: O\'zingiz haqida javob bering',
             'bar_color': '#e76f51',
             'instruction': 'Quyidagi savollarga javob bering:',
@@ -668,7 +667,7 @@ def seed_demo():
         }),
         
         # Упражнение 5: Quiz
-        (10, 'quiz', {
+        (15, 'quiz', {
             'title': 'Мини-тест: "Это мой друг" mavzusi - Grammatika',
             'bar_color': '#6a4c93',
             'questions': [
@@ -701,7 +700,7 @@ def seed_demo():
         }),
         
         # Vocab timer - final - yangilangan
-        (17, 'vocab_timer', {
+        (16, 'vocab_timer', {
             'title': 'Yakuniy Luғat vaqti: Dars 2 barcha soznlarini yodlab oling (200 s)',
             'timer_sec': 200,
             'test_order': 'random',
@@ -1122,6 +1121,27 @@ def save_progress(bid):
 
 # ─── API: .urok Export ────────────────────────────────────────────────────────
 
+@app.route('/api/urok/encode', methods=['POST'])
+def encode_urok_api():
+    """Darsni .urok formatiga kodlash (o'qituvchi uchun)"""
+    d = request.json or {}
+    lesson_id = d.get('lesson_id')
+    if not lesson_id:
+        return jsonify({'error': 'lesson_id kerak'}), 400
+    lesson = db.session.get(Lesson, lesson_id)
+    if not lesson:
+        return jsonify({'error': 'Dars topilmadi'}), 404
+    blocks = db.session.execute(
+        db.select(Block).filter_by(lesson_id=lesson_id).order_by(Block.order)
+    ).scalars().all()
+    payload = {
+        'title': lesson.title,
+        'subtitle': lesson.subtitle,
+        'blocks': [{'type': b.type, 'order': b.order,
+                    'data': json.loads(b.data or '{}')} for b in blocks]
+    }
+    encoded = encode_urok(payload)
+    return jsonify({'ok': True, 'data': encoded, 'filename': f'{lesson.title}.urok'})
 
 
 # ─── API: .urok Import (o'quvchi uchun) ─────────────────────────────────────
@@ -1243,7 +1263,8 @@ def upload_audio():
     if not f: return jsonify({'error': 'no file'}), 400
     audio_dir = os.path.join(BASE_DIR, 'static', 'audio')
     os.makedirs(audio_dir, exist_ok=True)
-    fname = f'{datetime.utcnow().timestamp()}_{f.filename}'
+    safe_name = os.path.basename(f.filename or 'file')
+    fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
     f.save(os.path.join(audio_dir, fname))
     return jsonify({'url': f'/static/audio/{fname}'})
 
@@ -1253,7 +1274,8 @@ def upload_image():
     if not f: return jsonify({'error': 'no file'}), 400
     img_dir = os.path.join(BASE_DIR, 'static', 'img')
     os.makedirs(img_dir, exist_ok=True)
-    fname = f'{datetime.utcnow().timestamp()}_{f.filename}'
+    safe_name = os.path.basename(f.filename or 'file')
+    fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
     f.save(os.path.join(img_dir, fname))
     return jsonify({'url': f'/static/img/{fname}'})
 
@@ -1263,7 +1285,8 @@ def upload_video():
     if not f: return jsonify({'error': 'no file'}), 400
     vid_dir = os.path.join(BASE_DIR, 'static', 'video')
     os.makedirs(vid_dir, exist_ok=True)
-    fname = f'{datetime.utcnow().timestamp()}_{f.filename}'
+    safe_name = os.path.basename(f.filename or 'file')
+    fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
     f.save(os.path.join(vid_dir, fname))
     return jsonify({'url': f'/static/video/{fname}'})
 
@@ -1329,6 +1352,8 @@ def create_user():
     if db.session.execute(db.select(User).filter_by(username=d['username'])).scalar_one_or_none():
         return jsonify({'error': 'username exists'}), 400
     u = User(username=d['username'], display=d.get('display',''), role=d.get('role','student'))
+    if d.get('password'):
+        u.set_password(d['password'])
     db.session.add(u); db.session.commit()
     return jsonify(u.to_dict())
 
@@ -1336,6 +1361,16 @@ def create_user():
 def delete_user(uid):
     u = db.session.get(User, uid)
     if not u: return jsonify({'error': 'not found'}), 404
+    # Bog'liq yozuvlarni tozalash
+    db.session.execute(db.delete(ChatMessage).where(
+        db.or_(ChatMessage.sender_id == uid, ChatMessage.receiver_id == uid)))
+    db.session.execute(db.delete(Attendance).where(Attendance.user_id == uid))
+    db.session.execute(db.delete(HomeworkSubmission).where(HomeworkSubmission.student_id == uid))
+    db.session.execute(db.delete(TestSession).where(TestSession.student_id == uid))
+    db.session.execute(db.delete(FavoriteWord).where(FavoriteWord.user_id == uid))
+    db.session.execute(db.delete(VideoProgress).where(VideoProgress.user_id == uid))
+    db.session.execute(db.delete(PushSubscription).where(PushSubscription.user_id == uid))
+    db.session.execute(db.delete(UserLog).where(UserLog.user_id == uid))
     db.session.delete(u); db.session.commit()
     return jsonify({'ok': True})
 
@@ -1387,8 +1422,22 @@ def remove_member(gid, uid):
     db.session.commit(); return jsonify(g.to_dict())
 
 # ── Chat history ────────────────────────────────────────────
-@app.route('/api/chat/global')
+@app.route('/api/chat/global', methods=['GET', 'POST'])
 def chat_global():
+    if request.method == 'POST':
+        d = request.json or {}
+        sender_id = d.get('sender_id')
+        content = d.get('content', '').strip()
+        if not sender_id or not content:
+            return jsonify({'error': 'sender_id va content kerak'}), 400
+        sender = db.session.get(User, sender_id)
+        if not sender or sender.blocked:
+            return jsonify({'error': 'Ruxsat yo\'q'}), 403
+        msg = ChatMessage(sender_id=sender_id, scope='global', content=content)
+        db.session.add(msg); db.session.commit()
+        socketio.emit('new_message', msg.to_dict(), room='global')
+        return jsonify(msg.to_dict())
+    # GET
     msgs = db.session.execute(
         db.select(ChatMessage).where(ChatMessage.scope == 'global')
         .order_by(ChatMessage.created_at.desc()).limit(100)
@@ -1504,7 +1553,8 @@ def upload_resource():
     if not f: return jsonify({'error': 'no file'}), 400
     res_dir = os.path.join(STATIC, 'resources')
     os.makedirs(res_dir, exist_ok=True)
-    fname = f'{datetime.utcnow().timestamp()}_{f.filename}'
+    safe_name = os.path.basename(f.filename or 'file')
+    fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
     f.save(os.path.join(res_dir, fname))
     return jsonify({'url': f'/static/resources/{fname}'})
 
@@ -1870,7 +1920,8 @@ def upload_homework_file():
     if not f: return jsonify({'error': 'no file'}), 400
     hw_dir = os.path.join(STATIC, 'homework')
     os.makedirs(hw_dir, exist_ok=True)
-    fname = f'{datetime.utcnow().timestamp()}_{f.filename}'
+    safe_name = os.path.basename(f.filename or 'file')
+    fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
     f.save(os.path.join(hw_dir, fname))
     return jsonify({'url': f'/static/homework/{fname}'})
 
@@ -1999,8 +2050,10 @@ def progress_dashboard():
         t_sessions = db.session.execute(
             db.select(TestSession).where(TestSession.student_id == u.id, TestSession.finished == True)
         ).scalars().all()
-        t_avg = round(sum(s.pct for s in map(lambda x: type('o',(object,),{'pct': round(x.score/x.max_score*100,1) if x.max_score else 0})(), t_sessions)) /
-                      max(1, len(t_sessions)), 1) if t_sessions else 0
+        t_avg = round(
+            sum(round(s.score / s.max_score * 100, 1) if s.max_score else 0 for s in t_sessions)
+            / max(1, len(t_sessions)), 1
+        ) if t_sessions else 0
 
         # Attendance
         att_recs  = db.session.execute(db.select(Attendance).where(Attendance.user_id == u.id)).scalars().all()
@@ -2122,14 +2175,16 @@ def auth_login():
     password = d.get('password','')
 
     u = db.session.execute(
-        db.select(User).where(User.username == username)
+        db.select(User).where(db.func.lower(User.username) == username)
     ).scalar_one_or_none()
 
     if not u:
         return jsonify({'ok': False, 'error': 'Foydalanuvchi topilmadi'}), 401
     if u.blocked:
         return jsonify({'ok': False, 'error': 'Siz bloklangansiz'}), 403
-    if u.password_hash and not u.check_password(password):
+    if not u.password_hash:
+        return jsonify({'ok': False, 'error': "Parol o'rnatilmagan. Admin bilan bog'laning."}), 401
+    if not u.check_password(password):
         return jsonify({'ok': False, 'error': "Parol noto'g'ri"}), 401
 
     # Update last_seen
@@ -2191,7 +2246,10 @@ def set_avatar(uid):
     if f:
         av_dir = os.path.join(STATIC, 'avatars')
         os.makedirs(av_dir, exist_ok=True)
-        ext   = os.path.splitext(f.filename)[1].lower() or '.jpg'
+        safe_name = os.path.basename(f.filename or 'avatar')
+        ext   = os.path.splitext(safe_name)[1].lower() or '.jpg'
+        if ext not in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+            return jsonify({'error': 'Faqat rasm fayllari ruxsat etilgan'}), 400
         fname = f'user_{uid}{ext}'
         f.save(os.path.join(av_dir, fname))
         u.avatar = f'/static/avatars/{fname}'

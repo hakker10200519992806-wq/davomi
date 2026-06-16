@@ -117,14 +117,22 @@ async function syncOfflineMessages() {
   const db = await openOfflineDB();
   const tx  = db.transaction('pending_msgs', 'readonly');
   const all = await getAllFromStore(tx.objectStore('pending_msgs'));
+  const sent = [];
   for (const msg of all) {
     try {
-      await fetch('/api/chat/global', {
+      const res = await fetch('/api/chat/global', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(msg)
       });
+      if (res.ok) sent.push(msg);
     } catch(e) { /* network error, try next time */ }
+  }
+  // Muvaffaqiyatli yuborilganlarni o'chirish
+  if (sent.length > 0) {
+    const delTx = db.transaction('pending_msgs', 'readwrite');
+    const store = delTx.objectStore('pending_msgs');
+    store.clear();
   }
 }
 
