@@ -97,6 +97,16 @@ body.dark .toolbar-dd-menu{
 }
 body.dark .toolbar-dd-menu .tb-dd-item{color:#e0deef!important}
 body.dark .toolbar-dd-menu .tb-dd-item:hover{background:#2d2b45!important;color:#a78bfa!important}
+/* Blok qo'shish dropdown tugmasi — asosiy ko'rinish */
+.blocks-dropdown-btn{
+  background:rgba(124,58,237,.5)!important;border-color:#7c3aed!important;
+  font-weight:800!important;font-size:13px!important;
+  padding:7px 16px!important;letter-spacing:.3px;
+}
+.blocks-dropdown-btn:hover{background:#7c3aed!important}
+.blocks-dd-menu{
+  min-width:200px!important;max-height:70vh!important;
+}
 
 /* ── Main Area ── */
 #main{display:flex;flex:1;overflow:hidden}
@@ -144,9 +154,8 @@ body.dark .toolbar-dd-menu .tb-dd-item:hover{background:#2d2b45!important;color:
   background:#f8f9fa;min-width:0;
 }
 #editor-toolbar{
-  padding:8px 12px;background:white;border-bottom:1px solid var(--border);
-  display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;flex-shrink:0;
-  overflow-y:auto;max-height:110px;
+  padding:0;background:white;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;flex-shrink:0;
 }
 #editor-toolbar span.label{
   font-size:12px;color:var(--gray);font-weight:600;
@@ -1270,10 +1279,22 @@ body.dark mark{background:#854d0e;color:#fef9c3;}
         <span class="urok-panel-label">📦 Darsni .urok faylga eksport qiling:</span>
         <button class="urok-btn green" onclick="exportCurrentLesson()">⬇ Yuklab olish (.urok)</button>
         <button class="urok-btn orange" onclick="openResultsScreen()">📊 Natijalarni ko'rish</button>
-        <!-- Qo'shimcha bloklar dropdown -->
-        <div class="tb-dropdown toolbar-dropdown" id="urok-more-blocks-dropdown" style="margin-left:auto">
-          <button class="urok-btn" onclick="toggleDropdown('urok-more-blocks-dropdown')" title="Ko'proq bloklar">➕ Ko'proq</button>
-          <div class="tb-dropdown-menu toolbar-dd-menu">
+        <!-- Blok qo'shish dropdown — barcha bloklar shu yerda -->
+        <div class="tb-dropdown toolbar-dropdown" id="editor-blocks-dropdown" style="margin-left:auto">
+          <button class="urok-btn blocks-dropdown-btn" onclick="toggleDropdown('editor-blocks-dropdown')" title="Blok qo'shish">➕ Blok qo'shish</button>
+          <div class="tb-dropdown-menu toolbar-dd-menu blocks-dd-menu">
+            <button class="tb-dd-item" onclick="openAddBlockModal('heading')">🔤 Sarlavha</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('vocab')">📖 So'zlar</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('dialog')">💬 Dialog</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('fill_blank')">✏️ Bo'sh joy</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('match')">🔗 Moslashtir</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('quiz')">🧠 Test</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('crossword')">🔲 Krossvord</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('image')">🖼️ Rasm</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('audio_text')">🔊 Matn+Ovoz</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('table')">📊 Jadval</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('hr')">― Chiziq</button>
+            <button class="tb-dd-item" onclick="openAddBlockModal('vocab_timer')">⏱ Lug'at+Test</button>
             <button class="tb-dd-item" onclick="openAddBlockModal('memory_game')">🃏 Xotira o'yini</button>
             <button class="tb-dd-item" onclick="openAddBlockModal('number_guess')">🔢 Son topish</button>
             <button class="tb-dd-item" onclick="openAddBlockModal('anagram')">🧩 Anagram</button>
@@ -1283,33 +1304,6 @@ body.dark mark{background:#854d0e;color:#fef9c3;}
             <button class="tb-dd-item" onclick="openAddBlockModal('role_dialog')">🎭 Rol dialog</button>
             <button class="tb-dd-item" onclick="openAddBlockModal('media')">🎬 Audio/Video</button>
           </div>
-        </div>
-      </div>
-      <span class="label">Blok qo'shish:</span>
-      <button class="add-block-btn" style="color:#e63946;border-color:#e63946" onclick="openAddBlockModal('heading')">🔤 Sarlavha</button>
-      <button class="add-block-btn" style="color:#457b9d;border-color:#457b9d" onclick="openAddBlockModal('vocab')">📖 So'zlar</button>
-      <button class="add-block-btn" style="color:#2a9d8f;border-color:#2a9d8f" onclick="openAddBlockModal('dialog')">💬 Dialog</button>
-      <button class="add-block-btn" style="color:#6a4c93;border-color:#6a4c93" onclick="openAddBlockModal('fill_blank')">✏️ Bo'sh joy</button>
-      <button class="add-block-btn" style="color:#e76f51;border-color:#e76f51" onclick="openAddBlockModal('match')">🔗 Moslashtir</button>
-      <button class="add-block-btn" style="color:#f4a261;border-color:#f4a261" onclick="openAddBlockModal('quiz')">🧠 Test</button>
-      <button class="add-block-btn" style="color:#264653;border-color:#264653" onclick="openAddBlockModal('crossword')">🔲 Krossvord</button>
-      <button class="add-block-btn" style="color:#333;border-color:#999" onclick="openAddBlockModal('image')">🖼️ Rasm</button>
-      <button class="add-block-btn" style="color:#555;border-color:#aaa" onclick="openAddBlockModal('audio_text')">🔊 Matn+Ovoz</button>
-      <button class="add-block-btn" style="color:#888;border-color:#ccc" onclick="openAddBlockModal('table')">📊 Jadval</button>
-      <button class="add-block-btn" style="color:#aaa;border-color:#ddd" onclick="openAddBlockModal('hr')">― Chiziq</button>
-      <button class="add-block-btn" style="color:#0ea5e9;border-color:#0ea5e9;font-weight:800" onclick="openAddBlockModal('vocab_timer')">⏱ Lug'at+Test</button>
-      <!-- Qo'shimcha bloklar dropdown -->
-      <div class="tb-dropdown toolbar-dropdown" id="editor-more-blocks-dropdown">
-        <button class="add-block-btn tb-dropdown-toggle" style="color:#7c3aed;border-color:#7c3aed;font-weight:800" onclick="toggleDropdown('editor-more-blocks-dropdown')" title="Qo'shimcha bloklar">➕ Ko'proq</button>
-        <div class="tb-dropdown-menu toolbar-dd-menu">
-          <button class="tb-dd-item" onclick="openAddBlockModal('memory_game')">🃏 Xotira o'yini</button>
-          <button class="tb-dd-item" onclick="openAddBlockModal('number_guess')">🔢 Son topish</button>
-          <button class="tb-dd-item" onclick="openAddBlockModal('anagram')">🧩 Anagram</button>
-          <button class="tb-dd-item" onclick="openAddBlockModal('flash_cards')">⚡ Tez xotira</button>
-          <button class="tb-dd-item" onclick="openAddBlockModal('dictation')">🎧 Diktant</button>
-          <button class="tb-dd-item" onclick="openAddBlockModal('memory_chain')">🔗 Zanjir xotira</button>
-          <button class="tb-dd-item" onclick="openAddBlockModal('role_dialog')">🎭 Rol dialog</button>
-          <button class="tb-dd-item" onclick="openAddBlockModal('media')">🎬 Audio/Video</button>
         </div>
       </div>
     </div>
