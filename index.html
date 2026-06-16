@@ -4473,6 +4473,7 @@ initLoginCheck();
 #op-title{font-weight:700;font-size:16px;flex:1}
 #op-userbadge{font-size:13px;opacity:.8}
 #op-body{flex:1;overflow-y:auto}
+#op-body:has(.tg-chat){overflow:hidden;padding:0}
 
 /* ── Panel common ── */
 .pw{max-width:960px;margin:0 auto;padding:20px 16px;width:100%}
@@ -4493,27 +4494,94 @@ body.dark .pf-sel{background:#12121f;color:#e0deef;border-color:#2d2b45}
 .notif-dot{width:8px;height:8px;background:#e63946;border-radius:50%;display:inline-block;margin-left:4px;animation:ndpulse 1.5s infinite}
 @keyframes ndpulse{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* ── Chat ── */
-.chat-tabs{display:flex;gap:4px;padding:10px 16px 0;border-bottom:1px solid #dee2e6;flex-wrap:wrap;background:white;flex-shrink:0}
-body.dark .chat-tabs{border-color:#2d2b45;background:#1c1a2e}
-.ct{padding:7px 14px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;font-weight:600;border:1.5px solid transparent;border-bottom:none;color:#6c757d;background:transparent;transition:all .15s}
-.ct.active{background:white;border-color:#dee2e6;color:#1d3557}
-body.dark .ct.active{background:#12121f;border-color:#2d2b45;color:#a8dadc}
-.chat-pane{display:flex;flex-direction:column;height:calc(100vh - 140px)}
-.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
-.cb{max-width:70%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.5;word-break:break-word}
-.cb.mine{background:#457b9d;color:white;align-self:flex-end;border-bottom-right-radius:4px}
-.cb.other{background:#f1f3f5;color:#212529;align-self:flex-start;border-bottom-left-radius:4px}
-body.dark .cb.other{background:#2d2b45;color:#e0deef}
-.cb-name{font-size:11px;font-weight:700;margin-bottom:3px;opacity:.8}
-.cb-time{font-size:10px;margin-top:4px;opacity:.6;text-align:right}
-.cb-role{font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.2);margin-left:4px}
-.chat-bar{padding:10px 14px;border-top:1px solid #dee2e6;display:flex;gap:8px;background:white;flex-shrink:0}
-body.dark .chat-bar{background:#12121f;border-color:#2d2b45}
-.chat-inp{flex:1;padding:10px 14px;border:1.5px solid #dee2e6;border-radius:20px;font-size:14px;outline:none;font-family:inherit;background:white;color:#212529}
-body.dark .chat-inp{background:#1c1a2e;color:#e0deef;border-color:#2d2b45}
-.chat-send{width:44px;height:44px;border-radius:50%;background:#457b9d;color:white;border:none;cursor:pointer;font-size:18px;flex-shrink:0}
-.chat-send:hover{filter:brightness(1.1)}
+/* ── Chat (Telegram-style) ── */
+.tg-chat{display:flex;height:calc(100vh - 52px);overflow:hidden}
+.tg-sidebar{width:260px;background:white;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:width .25s,opacity .2s}
+body.dark .tg-sidebar{background:#1c1a2e;border-color:#2d2b45}
+.tg-sidebar.collapsed{width:0;opacity:0;overflow:hidden;pointer-events:none}
+.tg-sb-head{padding:10px 12px;background:var(--dark);color:white;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.tg-sb-head span{font-weight:700;font-size:13px;flex:1}
+.tg-sb-toggle{background:none;border:none;color:white;cursor:pointer;font-size:16px;padding:4px 6px;border-radius:6px}
+.tg-sb-toggle:hover{background:rgba(255,255,255,.2)}
+.tg-sb-list{flex:1;overflow-y:auto;padding:6px}
+.tg-sb-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .12s;margin-bottom:2px}
+.tg-sb-item:hover{background:#f1faee}
+body.dark .tg-sb-item:hover{background:#2d2b45}
+.tg-sb-item.active{background:var(--light);border:1.5px solid var(--blue)}
+body.dark .tg-sb-item.active{background:#1a2840;border-color:#457b9d}
+.tg-sb-avatar{width:36px;height:36px;border-radius:50%;background:var(--blue);color:white;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.tg-sb-avatar.group{background:var(--green)}
+.tg-sb-info{flex:1;min-width:0}
+.tg-sb-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tg-sb-sub{font-size:11px;color:var(--gray);margin-top:1px}
+/* Chat main area */
+.tg-main{flex:1;display:flex;flex-direction:column;min-width:0;background:#e8edf2}
+body.dark .tg-main{background:#12121f}
+.tg-topbar{padding:10px 16px;background:white;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+body.dark .tg-topbar{background:#1c1a2e;border-color:#2d2b45}
+.tg-topbar-toggle{background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;border-radius:6px;color:var(--dark)}
+body.dark .tg-topbar-toggle{color:#a8dadc}
+.tg-topbar-toggle:hover{background:rgba(0,0,0,.06)}
+.tg-topbar-name{font-size:14px;font-weight:700;flex:1}
+.tg-topbar-info{font-size:11px;color:var(--gray)}
+/* Messages area */
+.tg-msgs{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:3px;scroll-behavior:smooth}
+.tg-msg-wrap{display:flex;flex-direction:column;max-width:65%;position:relative}
+.tg-msg-wrap.mine{align-self:flex-end;align-items:flex-end}
+.tg-msg-wrap.other{align-self:flex-start;align-items:flex-start}
+.tg-msg-sender{font-size:11px;font-weight:600;color:var(--blue);margin-bottom:2px;padding-left:4px;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tg-msg-sender:hover{text-decoration:underline}
+.tg-msg-bubble{padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.5;word-break:break-word;position:relative;min-width:60px}
+.tg-msg-wrap.mine .tg-msg-bubble{background:#3b82c4;color:white;border-bottom-right-radius:4px}
+.tg-msg-wrap.other .tg-msg-bubble{background:white;color:#212529;border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+body.dark .tg-msg-wrap.other .tg-msg-bubble{background:#2d2b45;color:#e0deef}
+.tg-msg-img{max-width:260px;max-height:200px;border-radius:8px;cursor:pointer;margin-bottom:4px;display:block}
+.tg-msg-img:hover{opacity:.9}
+.tg-msg-meta{display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:3px}
+.tg-msg-time{font-size:10px;opacity:.6}
+.tg-msg-edited{font-size:10px;font-style:italic;opacity:.5}
+/* Message actions (edit/delete) */
+.tg-msg-actions{display:none;position:absolute;top:-4px;right:-8px;background:white;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.15);padding:2px;z-index:10}
+body.dark .tg-msg-actions{background:#2d2b45}
+.tg-msg-wrap:hover .tg-msg-actions{display:flex}
+.tg-msg-act{width:24px;height:24px;border:none;border-radius:4px;cursor:pointer;font-size:12px;background:transparent;display:flex;align-items:center;justify-content:center}
+.tg-msg-act:hover{background:#f1f3f5}
+body.dark .tg-msg-act:hover{background:#3d3b5a}
+/* Input bar */
+.tg-input-bar{padding:10px 16px;background:white;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0}
+body.dark .tg-input-bar{background:#1c1a2e;border-color:#2d2b45}
+.tg-inp{flex:1;padding:10px 16px;border:1.5px solid var(--border);border-radius:22px;font-size:14px;outline:none;font-family:inherit;background:#f8f9fa;color:#212529;resize:none;max-height:100px;min-height:40px}
+body.dark .tg-inp{background:#12121f;color:#e0deef;border-color:#2d2b45}
+.tg-inp:focus{border-color:var(--blue)}
+.tg-btn-icon{width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--gray);transition:all .12s;flex-shrink:0}
+.tg-btn-icon:hover{background:#f1f3f5;color:var(--dark)}
+body.dark .tg-btn-icon:hover{background:#2d2b45;color:#a8dadc}
+.tg-btn-send{width:40px;height:40px;border-radius:50%;background:var(--blue);color:white;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:filter .12s}
+.tg-btn-send:hover{filter:brightness(1.1)}
+/* Emoji picker */
+.tg-emoji-picker{position:absolute;bottom:60px;left:16px;background:white;border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.15);padding:10px;width:300px;max-height:260px;overflow-y:auto;z-index:200;display:none}
+body.dark .tg-emoji-picker{background:#1c1a2e;border-color:#2d2b45}
+.tg-emoji-picker.show{display:block}
+.tg-emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+.tg-emoji-btn{width:32px;height:32px;border:none;border-radius:6px;cursor:pointer;font-size:18px;background:transparent;display:flex;align-items:center;justify-content:center;transition:background .1s}
+.tg-emoji-btn:hover{background:#f1f3f5}
+body.dark .tg-emoji-btn:hover{background:#2d2b45}
+/* Image lightbox */
+.tg-lightbox{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+.tg-lightbox.show{display:flex}
+.tg-lightbox img{max-width:90vw;max-height:80vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.tg-lb-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:600}
+.tg-lb-close:hover{background:rgba(255,255,255,.3)}
+.tg-lb-download{padding:8px 20px;border-radius:8px;background:var(--blue);color:white;border:none;cursor:pointer;font-size:13px;font-weight:600}
+.tg-lb-download:hover{filter:brightness(1.1)}
+/* User profile popup */
+.tg-profile-popup{position:fixed;z-index:500;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.2);padding:20px;width:260px;display:none}
+body.dark .tg-profile-popup{background:#1c1a2e;border:1px solid #2d2b45}
+.tg-profile-popup.show{display:block}
+.tg-pp-avatar{width:56px;height:56px;border-radius:50%;background:var(--blue);color:white;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 10px}
+.tg-pp-name{font-size:16px;font-weight:700;text-align:center}
+.tg-pp-role{font-size:12px;color:var(--gray);text-align:center;margin-top:2px}
+.tg-pp-close{position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;font-size:16px;color:var(--gray)}
 
 /* ── Announcement ── */
 .ann-card{border-radius:10px;border:1.5px solid #dee2e6;overflow:hidden;margin-bottom:12px;transition:border-color .15s}
@@ -4761,53 +4829,95 @@ function _joinRoom(scope, tid){
   else if(scope==='private'){const me=_me?.id||0;_chatRoom=`priv_${Math.min(me,tid)}_${Math.max(me,tid)}`;_sock.emit('join_room',{room:_chatRoom});}
 }
 
-function _appendMsg(msg){
-  const wrap=document.getElementById('_chat_msgs');
-  if(!wrap) return;
-  const isMe=_me&&msg.sender_id===_me.id;
-  const d=document.createElement('div');
-  d.className='cb '+(isMe?'mine':'other');
-  d.innerHTML=(isMe?'':
-    `<div class="cb-name">${esc(msg.sender_name)}<span class="cb-role">${msg.sender_role==='teacher'?'👨‍🏫':'👨‍🎓'}</span></div>`)+
-    `<div>${esc(msg.content)}</div><div class="cb-time">${msg.created_at}</div>`;
-  wrap.appendChild(d);
-  wrap.scrollTop=wrap.scrollHeight;
-}
+// ════════════════════════════════════════════════════════
+// CHAT (Telegram-style)
+// ════════════════════════════════════════════════════════
+const _emojis=['😀','😂','😍','🥰','😎','🤔','👍','👏','🎉','❤️','🔥','💯','😢','😡','🙏','✅','⭐','🌟','📚','✏️','💬','👋','🤝','😊','🥳','😄','😇','🤗','😏','😜','🤓','😴','🙄','😬','🫡','🫶','💪','👀','🎯','💡','📖','🗣️','✍️','🧠','🎓','📝','🔤','🇷🇺','🇺🇿'];
+let _chatSidebarOpen = true;
 
-// ════════════════════════════════════════════════════════
-// CHAT
-// ════════════════════════════════════════════════════════
 async function renderChat(){
   _initSock(); _rmDot('tbtn-chat');
   await _loadPD();
   const isT=_me?.role==='teacher';
-  let tabs=`<div class="chat-tabs">
-    <div class="ct ${_chatScope==='global'?'active':''}" onclick="switchTab('global',null)">🌐 Umumiy</div>`;
+  
+  // Build sidebar items
+  let sbItems=`<div class="tg-sb-item ${_chatScope==='global'?'active':''}" onclick="switchTab('global',null)">
+    <div class="tg-sb-avatar" style="background:#2a9d8f">🌐</div>
+    <div class="tg-sb-info"><div class="tg-sb-name">Umumiy</div><div class="tg-sb-sub">Barcha uchun</div></div></div>`;
+  
   _groups.forEach(g=>{
     const a=_chatScope==='group'&&_chatTarget===g.id;
-    tabs+=`<div class="ct ${a?'active':''}" onclick="switchTab('group',${g.id})"># ${esc(g.name)}</div>`;
+    sbItems+=`<div class="tg-sb-item ${a?'active':''}" onclick="switchTab('group',${g.id})">
+      <div class="tg-sb-avatar group">#</div>
+      <div class="tg-sb-info"><div class="tg-sb-name">${esc(g.name)}</div><div class="tg-sb-sub">${g.member_count||0} a'zo</div></div></div>`;
   });
+  
   const others=isT?_users.filter(u=>u.role==='student'):_users.filter(u=>u.role==='teacher');
   others.forEach(u=>{
     const a=_chatScope==='private'&&_chatTarget===u.id;
-    const ico=u.role==='teacher'?'👨‍🏫':'👤';
-    tabs+=`<div class="ct ${a?'active':''}" onclick="switchTab('private',${u.id})">${ico} ${esc(u.display)}</div>`;
+    sbItems+=`<div class="tg-sb-item ${a?'active':''}" onclick="switchTab('private',${u.id})">
+      <div class="tg-sb-avatar" style="font-size:18px">${esc(u.avatar||'👤')}</div>
+      <div class="tg-sb-info"><div class="tg-sb-name">${esc(u.display)}</div><div class="tg-sb-sub">${u.role==='teacher'?'O\'qituvchi':'O\'quvchi'}</div></div></div>`;
   });
-  tabs+='</div>';
+  
+  // Current chat name
+  let chatName='Umumiy';
+  if(_chatScope==='group'){const g=_groups.find(x=>x.id===_chatTarget);chatName=g?g.name:'Guruh';}
+  if(_chatScope==='private'){const u=_users.find(x=>x.id===_chatTarget);chatName=u?u.display:'Foydalanuvchi';}
 
-  _opBody.innerHTML=tabs+
-    `<div class="chat-pane">
-      <div class="chat-msgs" id="_chat_msgs"></div>
-      <div class="chat-bar">
-        ${!_me?'<span style="color:#e63946;font-size:13px">Iltimos tizimga kiring</span>':`
-          <input class="chat-inp" id="_chat_inp" placeholder="Xabar yozing..."
-            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}">
-          <button class="chat-send" onclick="sendMsg()">➤</button>`}
+  _opBody.innerHTML=`
+  <div class="tg-chat">
+    <div class="tg-sidebar ${_chatSidebarOpen?'':'collapsed'}" id="_tg_sidebar">
+      <div class="tg-sb-head">
+        <span>💬 Chatlar</span>
+        <button class="tg-sb-toggle" onclick="toggleChatSidebar()">✕</button>
       </div>
-    </div>`;
+      <div class="tg-sb-list">${sbItems}</div>
+    </div>
+    <div class="tg-main">
+      <div class="tg-topbar">
+        <button class="tg-topbar-toggle" onclick="toggleChatSidebar()" title="Menyu">☰</button>
+        <div class="tg-topbar-name">${esc(chatName)}</div>
+        <div class="tg-topbar-info">${_chatScope==='global'?'Umumiy chat':_chatScope==='group'?'Guruh chat':'Shaxsiy'}</div>
+      </div>
+      <div class="tg-msgs" id="_tg_msgs"></div>
+      <div style="position:relative">
+        <div class="tg-emoji-picker" id="_tg_emoji_picker">
+          <div class="tg-emoji-grid">${_emojis.map(e=>`<button class="tg-emoji-btn" onclick="insertEmoji('${e}')">${e}</button>`).join('')}</div>
+        </div>
+      </div>
+      <div class="tg-input-bar">
+        ${!_me?'<span style="color:#e63946;font-size:13px;padding:8px">Iltimos tizimga kiring</span>':`
+        <button class="tg-btn-icon" onclick="toggleEmojiPicker()" title="Emoji">😊</button>
+        <button class="tg-btn-icon" onclick="triggerChatImageUpload()" title="Rasm">🖼️</button>
+        <input type="file" id="_tg_img_input" accept="image/*" style="display:none" onchange="uploadChatImage(this)">
+        <textarea class="tg-inp" id="_tg_inp" placeholder="Xabar yozing..." rows="1"
+          oninput="autoResizeInp(this)"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
+        <button class="tg-btn-send" onclick="sendMsg()" title="Yuborish">➤</button>`}
+      </div>
+    </div>
+  </div>
+  <div class="tg-lightbox" id="_tg_lightbox" onclick="closeLightbox()">
+    <button class="tg-lb-close" onclick="closeLightbox()">✕ Yopish</button>
+    <img id="_tg_lb_img" src="">
+    <a class="tg-lb-download" id="_tg_lb_dl" href="" download>⬇ Yuklab olish</a>
+  </div>
+  <div class="tg-profile-popup" id="_tg_profile_popup">
+    <button class="tg-pp-close" onclick="closeProfilePopup()">✕</button>
+    <div class="tg-pp-avatar" id="_tg_pp_avatar">👤</div>
+    <div class="tg-pp-name" id="_tg_pp_name"></div>
+    <div class="tg-pp-role" id="_tg_pp_role"></div>
+  </div>`;
 
   await _loadHistory();
   _joinRoom(_chatScope, _chatTarget);
+}
+
+function toggleChatSidebar(){
+  _chatSidebarOpen=!_chatSidebarOpen;
+  const sb=document.getElementById('_tg_sidebar');
+  if(sb) sb.classList.toggle('collapsed',!_chatSidebarOpen);
 }
 
 async function switchTab(scope, tid){
@@ -4823,25 +4933,220 @@ async function _loadHistory(){
   if(!url) return;
   try{
     const msgs=await fetch(url).then(r=>r.json());
-    const w=document.getElementById('_chat_msgs');
+    const w=document.getElementById('_tg_msgs');
     if(!w) return;
     w.innerHTML='';
-    msgs.forEach(m=>_appendMsg(m));
+    msgs.forEach(m=>_renderMsg(w, m));
     w.scrollTop=w.scrollHeight;
   }catch(e){}
 }
 
+function _renderMsg(container, msg){
+  const isMe=_me&&msg.sender_id===_me.id;
+  const wrap=document.createElement('div');
+  wrap.className='tg-msg-wrap '+(isMe?'mine':'other');
+  wrap.id='msg-'+msg.id;
+  
+  let html='';
+  // Sender name (only for others)
+  if(!isMe){
+    html+=`<div class="tg-msg-sender" onclick="showProfilePopup(${msg.sender_id},event)">
+      <span style="font-size:14px">${esc(msg.sender_avatar||'👤')}</span> ${esc(msg.sender_name)}</div>`;
+  }
+  
+  // Bubble
+  html+='<div class="tg-msg-bubble">';
+  // Image
+  if(msg.image_url){
+    html+=`<img class="tg-msg-img" src="${esc(msg.image_url)}" onclick="openLightbox('${esc(msg.image_url)}');event.stopPropagation()">`;
+  }
+  // Content
+  if(msg.content){
+    html+=`<div>${esc(msg.content).replace(/\n/g,'<br>')}</div>`;
+  }
+  // Meta
+  html+=`<div class="tg-msg-meta">`;
+  if(msg.edited) html+=`<span class="tg-msg-edited">tahrirlangan</span>`;
+  html+=`<span class="tg-msg-time">${msg.created_at}</span>`;
+  html+=`</div>`;
+  html+=`</div>`; // end bubble
+  
+  // Actions (only for own messages)
+  if(isMe){
+    html+=`<div class="tg-msg-actions">
+      <button class="tg-msg-act" onclick="editMsg(${msg.id})" title="Tahrirlash">✏️</button>
+      <button class="tg-msg-act" onclick="deleteMsg(${msg.id})" title="O'chirish">🗑️</button>
+    </div>`;
+  }
+  
+  wrap.innerHTML=html;
+  container.appendChild(wrap);
+}
+
+function _appendMsg(msg){
+  const w=document.getElementById('_tg_msgs');
+  if(!w) return;
+  _renderMsg(w, msg);
+  w.scrollTop=w.scrollHeight;
+}
+
 function sendMsg(){
   if(!_me||_me.blocked){alert('Siz blok qilingansiz!');return;}
-  const inp=document.getElementById('_chat_inp');
+  const inp=document.getElementById('_tg_inp');
   if(!inp) return;
   const content=inp.value.trim();
   if(!content) return;
-  inp.value='';
+  inp.value='';inp.style.height='40px';
   const data={sender_id:_me.id,scope:_chatScope,content};
   if(_chatScope==='private') data.receiver_id=_chatTarget;
   if(_chatScope==='group')   data.group_id=_chatTarget;
   if(_sock) _sock.emit('send_message',data);
+  // Hide emoji picker
+  const ep=document.getElementById('_tg_emoji_picker');
+  if(ep) ep.classList.remove('show');
+}
+
+// Emoji
+function toggleEmojiPicker(){
+  const ep=document.getElementById('_tg_emoji_picker');
+  if(ep) ep.classList.toggle('show');
+}
+function insertEmoji(emoji){
+  const inp=document.getElementById('_tg_inp');
+  if(inp){inp.value+=emoji;inp.focus();}
+}
+
+// Image upload
+function triggerChatImageUpload(){
+  document.getElementById('_tg_img_input')?.click();
+}
+async function uploadChatImage(input){
+  const file=input.files[0];
+  if(!file) return;
+  const fd=new FormData();
+  fd.append('file',file);
+  try{
+    const res=await fetch('/api/chat/upload-image',{method:'POST',body:fd});
+    const data=await res.json();
+    if(data.url){
+      const msgData={sender_id:_me.id,scope:_chatScope,content:'',image_url:data.url};
+      if(_chatScope==='private') msgData.receiver_id=_chatTarget;
+      if(_chatScope==='group')   msgData.group_id=_chatTarget;
+      if(_sock) _sock.emit('send_message',msgData);
+    }
+  }catch(e){alert('Rasm yuklashda xato');}
+  input.value='';
+}
+
+// Lightbox
+function openLightbox(url){
+  const lb=document.getElementById('_tg_lightbox');
+  const img=document.getElementById('_tg_lb_img');
+  const dl=document.getElementById('_tg_lb_dl');
+  if(lb&&img){img.src=url;dl.href=url;lb.classList.add('show');}
+}
+function closeLightbox(){
+  const lb=document.getElementById('_tg_lightbox');
+  if(lb) lb.classList.remove('show');
+}
+
+// Edit message
+async function editMsg(mid){
+  const el=document.getElementById('msg-'+mid);
+  if(!el) return;
+  const bubble=el.querySelector('.tg-msg-bubble div');
+  if(!bubble) return;
+  const oldText=bubble.textContent;
+  const newText=prompt('Xabarni tahrirlang:',oldText);
+  if(newText===null||newText.trim()===''||newText===oldText) return;
+  try{
+    const res=await fetch('/api/chat/message/'+mid,{
+      method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({user_id:_me.id,content:newText.trim()})
+    });
+    if(res.ok){
+      const msg=await res.json();
+      // Update locally
+      el.outerHTML='';
+      const w=document.getElementById('_tg_msgs');
+      if(w) _renderMsg(w, msg);
+    }else{
+      const err=await res.json();
+      alert(err.error||'Xato');
+    }
+  }catch(e){alert('Xato yuz berdi');}
+}
+
+// Delete message
+async function deleteMsg(mid){
+  if(!confirm('Xabarni o\'chirmoqchimisiz?')) return;
+  try{
+    const res=await fetch('/api/chat/message/'+mid,{
+      method:'DELETE',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({user_id:_me.id})
+    });
+    if(res.ok){
+      const el=document.getElementById('msg-'+mid);
+      if(el) el.remove();
+    }else{
+      const err=await res.json();
+      alert(err.error||'Xato');
+    }
+  }catch(e){alert('Xato yuz berdi');}
+}
+
+// Profile popup
+function showProfilePopup(userId, event){
+  event.stopPropagation();
+  const u=_users.find(x=>x.id===userId);
+  if(!u) return;
+  const popup=document.getElementById('_tg_profile_popup');
+  if(!popup) return;
+  document.getElementById('_tg_pp_avatar').textContent=u.avatar||'👤';
+  document.getElementById('_tg_pp_name').textContent=u.display||u.username;
+  document.getElementById('_tg_pp_role').textContent=u.role==='teacher'?'👨‍🏫 O\'qituvchi':'👨‍🎓 O\'quvchi';
+  popup.style.top=(event.clientY+10)+'px';
+  popup.style.left=(event.clientX+10)+'px';
+  popup.classList.add('show');
+}
+function closeProfilePopup(){
+  const popup=document.getElementById('_tg_profile_popup');
+  if(popup) popup.classList.remove('show');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.tg-profile-popup')&&!e.target.closest('.tg-msg-sender')){
+    closeProfilePopup();
+  }
+  if(!e.target.closest('.tg-emoji-picker')&&!e.target.closest('.tg-btn-icon')){
+    const ep=document.getElementById('_tg_emoji_picker');
+    if(ep) ep.classList.remove('show');
+  }
+});
+
+// Auto-resize textarea
+function autoResizeInp(el){
+  el.style.height='40px';
+  el.style.height=Math.min(el.scrollHeight,100)+'px';
+}
+
+// Socket message_edited and message_deleted handlers
+if(typeof _sockExtraHandlers==='undefined'){
+  var _sockExtraHandlers=true;
+  const _origInitSock=_initSock;
+  _initSock=function(){
+    _origInitSock();
+    if(_sock&&!_sock._tgHandlersAdded){
+      _sock._tgHandlersAdded=true;
+      _sock.on('message_edited',msg=>{
+        const el=document.getElementById('msg-'+msg.id);
+        if(el){el.remove();const w=document.getElementById('_tg_msgs');if(w)_renderMsg(w,msg);}
+      });
+      _sock.on('message_deleted',data=>{
+        const el=document.getElementById('msg-'+data.id);
+        if(el) el.remove();
+      });
+    }
+  };
 }
 
 // ════════════════════════════════════════════════════════

@@ -110,13 +110,18 @@ class ChatMessage(db.Model):
     group_id    = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)
     scope       = db.Column(db.String(20), default='global')   # global | private | group
     content     = db.Column(db.Text, nullable=False)
+    image_url   = db.Column(db.Text, default='')
+    edited      = db.Column(db.Boolean, default=False)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
     def to_dict(self):
         return {'id': self.id, 'sender_id': self.sender_id,
                 'sender_name': self.sender.display or self.sender.username,
                 'sender_role': self.sender.role,
+                'sender_avatar': self.sender.avatar or '👤',
                 'receiver_id': self.receiver_id, 'group_id': self.group_id,
                 'scope': self.scope, 'content': self.content,
+                'image_url': self.image_url or '',
+                'edited': self.edited or False,
                 'created_at': self.created_at.strftime('%H:%M %d.%m.%Y')}
 
 
@@ -1466,6 +1471,65 @@ def chat_group(gid):
     ).scalars().all()
     return jsonify([m.to_dict() for m in reversed(msgs)])
 
+# ── Chat: Edit, Delete, Image ───────────────────────────────
+@app.route('/api/chat/message/<int:mid>', methods=['PUT'])
+def edit_message(mid):
+    """Xabarni tahrirlash — faqat yozgan odam"""
+    d = request.json or {}
+    msg = db.session.get(ChatMessage, mid)
+    if not msg: return jsonify({'error': 'not found'}), 404
+    if msg.sender_id != d.get('user_id'):
+        return jsonify({'error': 'Ruxsat yo\'q'}), 403
+    new_content = d.get('content', '').strip()
+    if not new_content:
+        return jsonify({'error': 'Bo\'sh xabar'}), 400
+    msg.content = new_content
+    msg.edited = True
+    db.session.commit()
+    socketio.emit('message_edited', msg.to_dict(), room=_get_msg_room(msg))
+    return jsonify(msg.to_dict())
+
+@app.route('/api/chat/message/<int:mid>', methods=['DELETE'])
+def delete_message(mid):
+    """Xabarni o'chirish — faqat yozgan odam yoki teacher"""
+    d = request.json or {}
+    msg = db.session.get(ChatMessage, mid)
+    if not msg: return jsonify({'error': 'not found'}), 404
+    user_id = d.get('user_id')
+    user = db.session.get(User, user_id) if user_id else None
+    if not user: return jsonify({'error': 'user kerak'}), 400
+    if msg.sender_id != user_id and user.role != 'teacher':
+        return jsonify({'error': 'Ruxsat yo\'q'}), 403
+    room = _get_msg_room(msg)
+    msg_id = msg.id
+    db.session.delete(msg); db.session.commit()
+    socketio.emit('message_deleted', {'id': msg_id}, room=room)
+    return jsonify({'ok': True})
+
+@app.route('/api/chat/upload-image', methods=['POST'])
+def chat_upload_image():
+    """Chat uchun rasm yuklash"""
+    f = request.files.get('file')
+    if not f: return jsonify({'error': 'no file'}), 400
+    safe_name = os.path.basename(f.filename or 'image.jpg')
+    ext = os.path.splitext(safe_name)[1].lower()
+    if ext not in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+        return jsonify({'error': 'Faqat rasm fayllari'}), 400
+    chat_img_dir = os.path.join(STATIC, 'img', 'chat')
+    os.makedirs(chat_img_dir, exist_ok=True)
+    fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
+    f.save(os.path.join(chat_img_dir, fname))
+    return jsonify({'url': f'/static/img/chat/{fname}'})
+
+def _get_msg_room(msg):
+    """Xabar qaysi roomga tegishli ekanini aniqlash"""
+    if msg.scope == 'global': return 'global'
+    if msg.scope == 'group': return f'group_{msg.group_id}'
+    if msg.scope == 'private':
+        a, b = msg.sender_id, msg.receiver_id or 0
+        return f'priv_{min(a,b)}_{max(a,b)}'
+    return 'global'
+
 # ── Announcements ───────────────────────────────────────────
 @app.route('/api/announcements', methods=['GET'])
 def get_announcements():
@@ -1694,7 +1758,8 @@ def on_message(data):
         receiver_id = data.get('receiver_id'),
         group_id    = data.get('group_id'),
         scope       = scope,
-        content     = data['content'],
+        content     = data.get('content', ''),
+        image_url   = data.get('image_url', ''),
     )
     db.session.add(msg); db.session.commit()
     payload = msg.to_dict()
