@@ -4513,7 +4513,10 @@ body.dark .tg-sb-item.active{background:#1a2840;border-color:#457b9d}
 .tg-sb-avatar.group{background:var(--green)}
 .tg-sb-info{flex:1;min-width:0}
 .tg-sb-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tg-sb-sub{font-size:11px;color:var(--gray);margin-top:1px}
+.tg-sb-sub{font-size:11px;color:var(--gray);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tg-sb-unread{min-width:18px;height:18px;border-radius:9px;background:var(--blue);color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.tg-sb-online{position:absolute;bottom:1px;right:1px;width:10px;height:10px;border-radius:50%;background:#2a9d8f;border:2px solid white}
+body.dark .tg-sb-online{border-color:#1c1a2e}
 /* Chat main area */
 .tg-main{flex:1;display:flex;flex-direction:column;min-width:0;background:#e8edf2}
 body.dark .tg-main{background:#12121f}
@@ -4564,6 +4567,32 @@ body.dark .tg-inp{background:#12121f;color:#e0deef;border-color:#2d2b45}
 body.dark .tg-btn-icon:hover{background:#2d2b45;color:#a8dadc}
 .tg-btn-send{width:40px;height:40px;border-radius:50%;background:var(--blue);color:white;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:filter .12s}
 .tg-btn-send:hover{filter:brightness(1.1)}
+/* Typing indicator */
+.tg-typing{padding:4px 16px;font-size:12px;color:var(--green);font-style:italic;min-height:18px;flex-shrink:0}
+.tg-typing:empty{display:none}
+/* Scroll to bottom button */
+.tg-scroll-btn{position:absolute;bottom:70px;right:20px;width:40px;height:40px;border-radius:50%;background:white;border:1.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.12);cursor:pointer;font-size:16px;display:none;align-items:center;justify-content:center;z-index:50;transition:all .15s}
+body.dark .tg-scroll-btn{background:#1c1a2e;border-color:#2d2b45}
+.tg-scroll-btn.show{display:flex}
+.tg-scroll-btn:hover{background:var(--blue);color:white;border-color:var(--blue)}
+/* Date divider */
+.tg-date-divider{align-self:center;background:rgba(0,0,0,.06);color:var(--gray);padding:4px 14px;border-radius:12px;font-size:11px;font-weight:600;margin:12px 0}
+body.dark .tg-date-divider{background:rgba(255,255,255,.08);color:#8899a6}
+/* Reply bar */
+.tg-reply-bar{padding:6px 16px;background:#f0f8ff;border-top:1px solid var(--border);display:none;align-items:center;gap:10px;flex-shrink:0}
+body.dark .tg-reply-bar{background:#1a2840;border-color:#2d2b45}
+.tg-reply-bar.show{display:flex}
+.tg-reply-bar-info{flex:1;min-width:0;border-left:3px solid var(--blue);padding-left:8px}
+.tg-reply-bar-name{font-size:11px;font-weight:700;color:var(--blue)}
+.tg-reply-bar-text{font-size:12px;color:var(--gray);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tg-reply-bar-close{background:none;border:none;cursor:pointer;font-size:18px;color:var(--gray);padding:4px}
+.tg-reply-bar-close:hover{color:var(--red)}
+/* Reply block inside bubble */
+.tg-reply-block{background:rgba(0,0,0,.06);border-left:3px solid var(--blue);border-radius:4px;padding:4px 8px;margin-bottom:6px;font-size:12px;cursor:pointer}
+.tg-msg-wrap.mine .tg-reply-block{background:rgba(255,255,255,.12);border-left-color:rgba(255,255,255,.5)}
+.tg-reply-rname{font-weight:700;font-size:11px;color:var(--blue);margin-bottom:1px}
+.tg-msg-wrap.mine .tg-reply-rname{color:rgba(255,255,255,.8)}
+.tg-reply-rtext{opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
 /* Emoji picker */
 .tg-emoji-picker{position:absolute;bottom:60px;left:16px;background:white;border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.15);padding:10px;width:300px;max-height:260px;overflow-y:auto;z-index:200;display:none}
 body.dark .tg-emoji-picker{background:#1c1a2e;border-color:#2d2b45}
@@ -4887,10 +4916,19 @@ async function renderChat(){
         <div class="tg-topbar-info">${_chatScope==='global'?'Umumiy chat':_chatScope==='group'?'Guruh chat':'Shaxsiy'}</div>
       </div>
       <div class="tg-msgs" id="_tg_msgs"></div>
+      <div class="tg-typing" id="_tg_typing"></div>
+      <button class="tg-scroll-btn" id="_tg_scroll_btn" onclick="scrollChatBottom()">⬇</button>
       <div style="position:relative">
         <div class="tg-emoji-picker" id="_tg_emoji_picker">
           <div class="tg-emoji-grid">${_emojis.map(e=>`<button class="tg-emoji-btn" onclick="insertEmoji('${e}')">${e}</button>`).join('')}</div>
         </div>
+      </div>
+      <div class="tg-reply-bar" id="_tg_reply_bar">
+        <div class="tg-reply-bar-info">
+          <div class="tg-reply-bar-name" id="_tg_reply_name"></div>
+          <div class="tg-reply-bar-text" id="_tg_reply_text"></div>
+        </div>
+        <button class="tg-reply-bar-close" onclick="cancelReply()">✕</button>
       </div>
       <div class="tg-input-bar">
         ${!_me?'<span style="color:#e63946;font-size:13px;padding:8px">Iltimos tizimga kiring</span>':`
@@ -4942,9 +4980,23 @@ async function _loadHistory(){
     const w=document.getElementById('_tg_msgs');
     if(!w) return;
     w.innerHTML='';
-    msgs.forEach(m=>_renderMsg(w, m));
+    _lastMsgDate='';
+    msgs.forEach(m=>{
+      _maybeAddDateDivider(w, m.created_at);
+      _renderMsg(w, m);
+    });
     w.scrollTop=w.scrollHeight;
+    // Scroll listener for scroll-to-bottom button
+    w.addEventListener('scroll',_handleChatScroll);
   }catch(e){}
+}
+
+function _handleChatScroll(){
+  const w=document.getElementById('_tg_msgs');
+  const btn=document.getElementById('_tg_scroll_btn');
+  if(!w||!btn) return;
+  const atBottom=w.scrollHeight-w.scrollTop-w.clientHeight<100;
+  btn.classList.toggle('show',!atBottom);
 }
 
 function _renderMsg(container, msg){
@@ -4989,8 +5041,13 @@ function _renderMsg(container, msg){
   // Actions (only for own messages)
   if(isMe){
     html+=`<div class="tg-msg-actions">
+      <button class="tg-msg-act" onclick="replyToMsg(${msg.id},'${esc(msg.sender_name)}','${esc((msg.content||'🖼️ Rasm').substring(0,40))}')" title="Javob">↩️</button>
       <button class="tg-msg-act" onclick="editMsg(${msg.id})" title="Tahrirlash">✏️</button>
       <button class="tg-msg-act" onclick="deleteMsg(${msg.id})" title="O'chirish">🗑️</button>
+    </div>`;
+  } else {
+    html+=`<div class="tg-msg-actions">
+      <button class="tg-msg-act" onclick="replyToMsg(${msg.id},'${esc(msg.sender_name)}','${esc((msg.content||'🖼️ Rasm').substring(0,40))}')" title="Javob">↩️</button>
     </div>`;
   }
   
@@ -5011,10 +5068,11 @@ function sendMsg(){
   if(!inp) return;
   const content=inp.value.trim();
   if(!content) return;
-  inp.value='';inp.style.height='40px';
+  inp.value='';inp.style.height='42px';
   const data={sender_id:_me.id,scope:_chatScope,content};
   if(_chatScope==='private') data.receiver_id=_chatTarget;
   if(_chatScope==='group')   data.group_id=_chatTarget;
+  if(_replyTo) {data.reply_to=_replyTo; cancelReply();}
   if(_sock) _sock.emit('send_message',data);
   // Hide emoji picker
   const ep=document.getElementById('_tg_emoji_picker');
@@ -5140,8 +5198,65 @@ document.addEventListener('click',e=>{
 
 // Auto-resize textarea
 function autoResizeInp(el){
-  el.style.height='40px';
-  el.style.height=Math.min(el.scrollHeight,100)+'px';
+  el.style.height='42px';
+  el.style.height=Math.min(el.scrollHeight,120)+'px';
+  // Typing indicator
+  _emitTyping();
+}
+
+// Reply to message
+let _replyTo=null;
+function replyToMsg(msgId, name, text){
+  _replyTo={id:msgId, name, text};
+  const bar=document.getElementById('_tg_reply_bar');
+  const rn=document.getElementById('_tg_reply_name');
+  const rt=document.getElementById('_tg_reply_text');
+  if(bar&&rn&&rt){
+    rn.textContent=name;
+    rt.textContent=text;
+    bar.classList.add('show');
+  }
+  document.getElementById('_tg_inp')?.focus();
+}
+function cancelReply(){
+  _replyTo=null;
+  const bar=document.getElementById('_tg_reply_bar');
+  if(bar) bar.classList.remove('show');
+}
+
+// Typing indicator
+let _typingTimeout=null;
+function _emitTyping(){
+  if(!_sock||!_me) return;
+  _sock.emit('typing',{sender_id:_me.id, sender_name:_me.display||_me.username, scope:_chatScope, target:_chatTarget});
+  clearTimeout(_typingTimeout);
+  _typingTimeout=setTimeout(()=>{
+    _sock.emit('stop_typing',{sender_id:_me.id, scope:_chatScope, target:_chatTarget});
+  },2000);
+}
+
+// Scroll to bottom
+function scrollChatBottom(){
+  const w=document.getElementById('_tg_msgs');
+  if(w) w.scrollTop=w.scrollHeight;
+  const btn=document.getElementById('_tg_scroll_btn');
+  if(btn) btn.classList.remove('show');
+}
+
+// Date dividers
+let _lastMsgDate='';
+function _maybeAddDateDivider(container, dateStr){
+  // dateStr format: "HH:MM DD.MM.YYYY"
+  const parts=dateStr.split(' ');
+  if(parts.length<2) return;
+  const day=parts[1]; // DD.MM.YYYY
+  if(day!==_lastMsgDate){
+    _lastMsgDate=day;
+    const div=document.createElement('div');
+    div.className='tg-date-divider';
+    div.textContent=day;
+    container.appendChild(div);
+  }
 }
 
 // Socket message_edited and message_deleted handlers
@@ -5159,6 +5274,15 @@ if(typeof _sockExtraHandlers==='undefined'){
       _sock.on('message_deleted',data=>{
         const el=document.getElementById('msg-'+data.id);
         if(el) el.remove();
+      });
+      _sock.on('user_typing',data=>{
+        if(data.sender_id===_me?.id) return;
+        const el=document.getElementById('_tg_typing');
+        if(el) el.textContent=`${data.sender_name} yozmoqda...`;
+      });
+      _sock.on('user_stop_typing',data=>{
+        const el=document.getElementById('_tg_typing');
+        if(el) el.textContent='';
       });
     }
   };

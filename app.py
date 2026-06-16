@@ -1763,6 +1763,9 @@ def on_message(data):
     )
     db.session.add(msg); db.session.commit()
     payload = msg.to_dict()
+    # Reply info (stored client-side only for now)
+    if data.get('reply_to'):
+        payload['reply_to'] = data['reply_to']
     if scope == 'global':
         emit('new_message', payload, room='global')
     elif scope == 'group':
@@ -1770,6 +1773,33 @@ def on_message(data):
     elif scope == 'private':
         room = f'priv_{min(data["sender_id"], data["receiver_id"])}_{max(data["sender_id"], data["receiver_id"])}'
         emit('new_message', payload, room=room)
+
+@socketio.on('typing')
+def on_typing(data):
+    """Yozmoqda... ko'rsatish"""
+    scope = data.get('scope', 'global')
+    if scope == 'global':
+        emit('user_typing', data, room='global', include_self=False)
+    elif scope == 'group':
+        emit('user_typing', data, room=f'group_{data.get("target")}', include_self=False)
+    elif scope == 'private':
+        tid = data.get('target', 0)
+        sid = data.get('sender_id', 0)
+        room = f'priv_{min(sid,tid)}_{max(sid,tid)}'
+        emit('user_typing', data, room=room, include_self=False)
+
+@socketio.on('stop_typing')
+def on_stop_typing(data):
+    scope = data.get('scope', 'global')
+    if scope == 'global':
+        emit('user_stop_typing', data, room='global', include_self=False)
+    elif scope == 'group':
+        emit('user_stop_typing', data, room=f'group_{data.get("target")}', include_self=False)
+    elif scope == 'private':
+        tid = data.get('target', 0)
+        sid = data.get('sender_id', 0)
+        room = f'priv_{min(sid,tid)}_{max(sid,tid)}'
+        emit('user_stop_typing', data, room=room, include_self=False)
 
 # ════════════════════════════════════════════════════════════
 # YANGI MODELLAR: Homework, OnlineTest, Favorite, Progress
