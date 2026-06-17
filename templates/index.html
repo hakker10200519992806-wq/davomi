@@ -309,18 +309,20 @@ body.dark .toolbar-dd-menu .tb-dd-item:hover{background:#2d2b45!important;color:
 }
 
 /* vocab */
-.vocab-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.vocab-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:340px;overflow-y:auto;padding-right:4px}
+.vocab-grid::-webkit-scrollbar{width:5px}
+.vocab-grid::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
 .vocab-item{
   display:flex;align-items:center;gap:8px;padding:8px 12px;
   border:1.5px solid var(--border);border-radius:var(--radius);
-  font-size:14px;background:white;
+  font-size:14px;background:white;overflow:hidden;min-height:0;
 }
 .vocab-item .vnum{
   font-size:11px;font-weight:700;color:white;background:var(--blue);
-  border-radius:4px;min-width:20px;text-align:center;padding:1px 4px;
+  border-radius:4px;min-width:20px;text-align:center;padding:1px 4px;flex-shrink:0;
 }
-.vocab-item .vru{font-weight:600;flex:1}
-.vocab-item .vuz{color:var(--gray);font-size:13px}
+.vocab-item .vru{font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vocab-item .vuz{color:var(--gray);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40%}
 .vocab-audio-btn{
   width:26px;height:26px;border-radius:50%;background:var(--blue);
   color:white;font-size:12px;display:flex;align-items:center;justify-content:center;
@@ -648,9 +650,9 @@ body.dark .sf-sb-item.active{background:#1a2840;border-color:#457b9d;}
 #sf-content .s-heading{font-size:2rem!important;margin:4px 0;}
 #sf-content .s-section-label{font-size:16px!important;padding:10px 18px!important;}
 #sf-content .s-section-bar{min-height:40px!important;}
-#sf-content .vocab-grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;}
+#sf-content .vocab-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;max-height:380px;overflow-y:auto}
 #sf-content .vocab-item{padding:12px 16px;font-size:15px;}
-#sf-content .vocab-item .vru{font-size:16px;}
+#sf-content .vocab-item .vru{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #sf-content .fb-item{font-size:16px;margin-bottom:14px;}
 #sf-content .fb-input{font-size:16px;min-width:100px;}
 #sf-content .quiz-q{font-size:17px;}
