@@ -6519,15 +6519,60 @@ function _closeModal(){
 // ════════════════════════════════════════════════════════
 async function renderPublished(){
   await _loadPD();
+  const downloaded=JSON.parse(localStorage.getItem('ll_downloaded_lessons')||'[]');
+  
+  let h='<div class="pw">';
+  
+  // Tepada: "Saytga yuklangan darsliklar" tugmasi
+  h+=`<div style="display:flex;gap:10px;margin-bottom:16px;align-items:center">
+    <button class="pb pb-b" onclick="_showPublishedServer()" style="padding:10px 20px;font-size:14px">📤 Saytga yuklangan darsliklar</button>
+    <span style="font-size:13px;color:#6c757d">Serverdagi barcha darsliklarni ko'rish</span>
+  </div>`;
+  
+  // Asosiy: Yuklab olingan darsliklar
+  h+=`<div class="ps"><div class="ps-h">📥 Yuklab olingan darsliklar <span style="margin-left:auto;font-size:12px;font-weight:400;opacity:.7">${downloaded.length} ta</span></div><div class="ps-b">`;
+  
+  if(!downloaded.length){
+    h+='<div style="text-align:center;padding:32px;color:#aaa"><div style="font-size:40px;margin-bottom:8px">📭</div><p>Yuklab olingan darsliklar yo\'q</p><p style="font-size:12px;margin-top:6px">"📤 Saytga yuklangan darsliklar" dan darslik yuklab oling</p></div>';
+  } else {
+    h+='<div style="display:flex;flex-direction:column;gap:10px">';
+    downloaded.forEach((dl,idx)=>{
+      h+=`<div style="border:1.5px solid #dee2e6;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;background:#f8f9fa;transition:border-color .15s" onmouseover="this.style.borderColor='#457b9d'" onmouseout="this.style.borderColor='#dee2e6'">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:700;color:#1d3557">${esc(dl.title||'Darslik')}</div>
+          <div style="font-size:12px;color:#6c757d;margin-top:3px">${esc(dl.publisher_name||'')} • ${dl.blocks?.length||0} blok • ${new Date(dl.downloaded_at).toLocaleDateString()}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="pb pb-b" style="padding:6px 14px;font-size:12px" onclick="_openDownloadedLesson(${idx})">👁 Ko'rish</button>
+          <button class="pb pb-r" style="padding:6px 14px;font-size:12px" onclick="_removeDownloaded(${idx})">🗑</button>
+        </div>
+      </div>`;
+    });
+    h+='</div>';
+  }
+  h+='</div></div></div>';
+  _opBody.innerHTML=h;
+}
+
+// Saytga yuklangan (server) darsliklar oynasi
+async function _showPublishedServer(){
+  await _loadPD();
   const isT=_me?.role==='teacher';
   const pubs=await fetch(`/api/published-lessons?user_id=${_me?.id||0}`).then(r=>r.json());
   const visLabels={private:'🔒 Shaxsiy',teachers:'👨‍🏫 O\'qituvchilar',selected_teachers:'👨‍🏫 Tanlangan',students:'👨‍🎓 O\'quvchilar',selected_students:'👨‍🎓 Tanlangan','public':'🌐 Hamma'};
   
   let h='<div class="pw">';
-  h+=`<div class="ps"><div class="ps-h">📤 Yuklangan darsliklar <span style="margin-left:auto;font-size:12px;font-weight:400;opacity:.7">${pubs.length} ta</span></div><div class="ps-b">`;
+  
+  // Tepada: orqaga tugma
+  h+=`<div style="display:flex;gap:10px;margin-bottom:16px;align-items:center">
+    <button class="pb pb-cancel" onclick="renderPublished()" style="padding:8px 16px">← Yuklab olinganlar</button>
+    <span style="font-size:14px;font-weight:700;color:#1d3557">📤 Saytga yuklangan darsliklar</span>
+  </div>`;
+  
+  h+=`<div class="ps"><div class="ps-h">📤 Saytda mavjud darsliklar <span style="margin-left:auto;font-size:12px;font-weight:400;opacity:.7">${pubs.length} ta</span></div><div class="ps-b">`;
   
   if(!pubs.length){
-    h+='<div style="text-align:center;padding:32px;color:#aaa"><div style="font-size:40px;margin-bottom:8px">📭</div><p>Hali yuklangan darsliklar yo\'q</p><p style="font-size:12px;margin-top:6px">Chap panelda dars yonidagi 📤 tugmasini bosing</p></div>';
+    h+='<div style="text-align:center;padding:32px;color:#aaa"><div style="font-size:40px;margin-bottom:8px">📭</div><p>Hali darsliklar yuklanmagan</p><p style="font-size:12px;margin-top:6px">Chap panelda dars yonidagi 📤 tugmasini bosing</p></div>';
   } else {
     h+='<div style="display:flex;flex-direction:column;gap:12px">';
     pubs.forEach(p=>{
@@ -6542,14 +6587,14 @@ async function renderPublished(){
               <span>📦 ${p.block_count} blok</span>
               <span>💬 ${p.comment_count||0}</span>
               <span>📅 ${p.published_at}</span>
-              <span>${p.allow_download?'⬇️ Yuklash ✓':'🚫 Yuklash ✕'}</span>
+              <span>${p.allow_download?'⬇️ ✓':'🚫'}</span>
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
             <button class="pb pb-b" style="padding:5px 12px;font-size:12px" onclick="_viewPublished(${p.id})">👁 Ko'rish</button>
             <button class="pb pb-p" style="padding:5px 12px;font-size:12px" onclick="_openComments(${p.id})">💬 Izohlar</button>
             ${isT?`<button class="pb pb-o" style="padding:5px 12px;font-size:12px" onclick="_editPublished(${p.id})">✏️</button>`:''}
-            ${p.allow_download?`<button class="pb pb-g" style="padding:5px 12px;font-size:12px" onclick="_downloadPublished(${p.id})">⬇️</button>`:''}
+            ${p.allow_download?`<button class="pb pb-g" style="padding:5px 12px;font-size:12px" onclick="_downloadPublished(${p.id})">⬇️ Yuklab olish</button>`:''}
             ${isT?`<button class="pb pb-r" style="padding:5px 12px;font-size:12px" onclick="_deletePublished(${p.id})">🗑️</button>`:''}
           </div>
         </div>
@@ -6558,25 +6603,6 @@ async function renderPublished(){
     h+='</div>';
   }
   h+='</div></div></div>';
-  
-  // Locally downloaded lessons
-  const downloaded=JSON.parse(localStorage.getItem('ll_downloaded_lessons')||'[]');
-  if(downloaded.length){
-    h+=`<div class="ps"><div class="ps-h">📥 Yuklab olingan darsliklar (qurilmada) <span style="margin-left:auto;font-size:12px;font-weight:400;opacity:.7">${downloaded.length} ta</span></div><div class="ps-b">`;
-    h+='<div style="display:flex;flex-direction:column;gap:10px">';
-    downloaded.forEach((dl,idx)=>{
-      h+=`<div style="border:1.5px solid #dee2e6;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:700;color:#1d3557">${esc(dl.title||'Darslik')}</div>
-          <div style="font-size:12px;color:#6c757d;margin-top:2px">${esc(dl.publisher_name||'')} • ${dl.blocks?.length||0} blok • ${new Date(dl.downloaded_at).toLocaleDateString()}</div>
-        </div>
-        <button class="pb pb-b" style="padding:5px 12px;font-size:12px" onclick="_openDownloadedLesson(${idx})">👁 Ko'rish</button>
-        <button class="pb pb-r" style="padding:5px 12px;font-size:12px" onclick="_removeDownloaded(${idx})">🗑</button>
-      </div>`;
-    });
-    h+='</div></div></div>';
-  }
-  
   _opBody.innerHTML=h;
 }
 
