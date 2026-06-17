@@ -273,6 +273,50 @@ class Block(db.Model):
                 'order': self.order, 'data': json.loads(self.data or '{}')}
 
 
+# ── Published Lessons (Darsliklarni saytga yuklash) ───────────────────────────
+
+published_lesson_viewers = db.Table('published_lesson_viewers',
+    db.Column('published_id', db.Integer, db.ForeignKey('published_lesson.id'), primary_key=True),
+    db.Column('user_id',      db.Integer, db.ForeignKey('user.id'),             primary_key=True),
+)
+
+class PublishedLesson(db.Model):
+    __tablename__ = 'published_lesson'
+    id            = db.Column(db.Integer, primary_key=True)
+    lesson_id     = db.Column(db.Integer, db.ForeignKey('lesson.id'), nullable=False)
+    publisher_id  = db.Column(db.Integer, db.ForeignKey('user.id'),   nullable=False)
+    title         = db.Column(db.String(200), nullable=False)
+    subtitle      = db.Column(db.String(200), default='')
+    # visibility: private | teachers | students | selected_teachers | selected_students | public
+    visibility    = db.Column(db.String(30), default='private')
+    allow_download= db.Column(db.Boolean, default=False)
+    blocks_json   = db.Column(db.Text, default='[]')  # Snapshot of blocks at publish time
+    published_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    # Relationships
+    publisher     = db.relationship('User', foreign_keys=[publisher_id], backref='published_lessons')
+    lesson        = db.relationship('Lesson', backref='publications')
+    viewers       = db.relationship('User', secondary=published_lesson_viewers,
+                                    backref=db.backref('viewable_lessons', lazy=True), lazy=True)
+
+    def to_dict(self, include_blocks=False):
+        d = {
+            'id': self.id, 'lesson_id': self.lesson_id,
+            'publisher_id': self.publisher_id,
+            'publisher_name': self.publisher.display or self.publisher.username,
+            'title': self.title, 'subtitle': self.subtitle,
+            'visibility': self.visibility,
+            'allow_download': self.allow_download,
+            'block_count': len(json.loads(self.blocks_json or '[]')),
+            'viewer_ids': [u.id for u in self.viewers],
+            'published_at': self.published_at.strftime('%d.%m.%Y %H:%M'),
+            'updated_at': self.updated_at.strftime('%d.%m.%Y %H:%M'),
+        }
+        if include_blocks:
+            d['blocks'] = json.loads(self.blocks_json or '[]')
+        return d
+
+
 class StudentProgress(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     block_id   = db.Column(db.Integer, db.ForeignKey('block.id'), nullable=False)
@@ -1737,6 +1781,131 @@ def get_pinned():
         q = q.where(ChatMessage.scope == 'group', ChatMessage.group_id == gid)
     msgs = db.session.execute(q.order_by(ChatMessage.created_at.desc()).limit(20)).scalars().all()
     return jsonify([m.to_dict() for m in msgs])
+
+# ════════════════════════════════════════════════════════════
+# API: Published Lessons (Darsliklarni saytga yuklash)
+# ════════════════════════════════════════════════════════════
+
+@app.route('/api/published-lessons', methods=['GET'])
+def get_published_lessons():
+    """Foydalanuvchiga ko'rinadigan yuklangan darsliklarni qaytaradi"""
+    uid = request.args.get('user_id', type=int)
+    user = db.session.get(User, uid) if uid else None
+    all_pubs = db.session.execute(
+        db.select(PublishedLesson).order_by(PublishedLesson.published_at.desc())
+    ).scalars().all()
+    result = []
+    for p in all_pubs:
+        # Visibility filter
+        if p.visibility == 'public':
+            result.append(p.to_dict())
+        elif p.visibility == 'private' and user and p.publisher_id == user.id:
+            result.append(p.to_dict())
+        elif p.visibility == 'teachers' and user and user.role == 'teacher':
+            result.append(p.to_dict())
+        elif p.visibility == 'students' and user and user.role == 'student':
+            result.append(p.to_dict())
+        elif p.visibility in ('selected_teachers', 'selected_students'):
+            if user and user.id in [v.id for v in p.viewers]:
+                result.append(p.to_dict())
+            elif user and p.publisher_id == user.id:
+                result.append(p.to_dict())
+        elif user and p.publisher_id == user.id:
+            result.append(p.to_dict())
+    return jsonify(result)
+
+@app.route('/api/published-lessons/<int:pid>', methods=['GET'])
+def get_published_lesson(pid):
+    """Bitta yuklangan darslikni bloklari bilan qaytaradi"""
+    p = db.session.get(PublishedLesson, pid)
+    if not p: return jsonify({'error': 'not found'}), 404
+    return jsonify(p.to_dict(include_blocks=True))
+
+@app.route('/api/published-lessons', methods=['POST'])
+def publish_lesson():
+    """Darslikni saytga yuklash (publish)"""
+    d = request.json or {}
+    lesson_id = d.get('lesson_id')
+    publisher_id = d.get('publisher_id')
+    if not lesson_id or not publisher_id:
+        return jsonify({'error': 'lesson_id va publisher_id kerak'}), 400
+    lesson = db.session.get(Lesson, lesson_id)
+    if not lesson: return jsonify({'error': 'Dars topilmadi'}), 404
+    # Bloklarni snapshot qilish
+    blocks = db.session.execute(
+        db.select(Block).filter_by(lesson_id=lesson_id).order_by(Block.order)
+    ).scalars().all()
+    blocks_data = [{'type': b.type, 'order': b.order, 'data': json.loads(b.data or '{}')} for b in blocks]
+    # Yangi publish yaratish
+    pub = PublishedLesson(
+        lesson_id=lesson_id, publisher_id=publisher_id,
+        title=d.get('title', lesson.title),
+        subtitle=d.get('subtitle', lesson.subtitle),
+        visibility=d.get('visibility', 'private'),
+        allow_download=d.get('allow_download', False),
+        blocks_json=json.dumps(blocks_data, ensure_ascii=False),
+    )
+    db.session.add(pub)
+    db.session.flush()
+    # Viewers (selected users)
+    viewer_ids = d.get('viewer_ids', [])
+    for vid in viewer_ids:
+        u = db.session.get(User, vid)
+        if u: pub.viewers.append(u)
+    db.session.commit()
+    return jsonify(pub.to_dict())
+
+@app.route('/api/published-lessons/<int:pid>', methods=['PUT'])
+def update_published_lesson(pid):
+    """Yuklangan darslikni yangilash (visibility, download, bloklarni sync)"""
+    p = db.session.get(PublishedLesson, pid)
+    if not p: return jsonify({'error': 'not found'}), 404
+    d = request.json or {}
+    if 'title' in d: p.title = d['title']
+    if 'subtitle' in d: p.subtitle = d['subtitle']
+    if 'visibility' in d: p.visibility = d['visibility']
+    if 'allow_download' in d: p.allow_download = d['allow_download']
+    if d.get('sync_blocks'):
+        # Bloklarni hozirgi holatga yangilash
+        blocks = db.session.execute(
+            db.select(Block).filter_by(lesson_id=p.lesson_id).order_by(Block.order)
+        ).scalars().all()
+        blocks_data = [{'type': b.type, 'order': b.order, 'data': json.loads(b.data or '{}')} for b in blocks]
+        p.blocks_json = json.dumps(blocks_data, ensure_ascii=False)
+    if 'viewer_ids' in d:
+        p.viewers = []
+        for vid in d['viewer_ids']:
+            u = db.session.get(User, vid)
+            if u: p.viewers.append(u)
+    p.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify(p.to_dict())
+
+@app.route('/api/published-lessons/<int:pid>', methods=['DELETE'])
+def delete_published_lesson(pid):
+    """Yuklangan darslikni o'chirish"""
+    d = request.json or {}
+    p = db.session.get(PublishedLesson, pid)
+    if not p: return jsonify({'error': 'not found'}), 404
+    user_id = d.get('user_id')
+    if p.publisher_id != user_id:
+        user = db.session.get(User, user_id) if user_id else None
+        if not user or user.role != 'teacher':
+            return jsonify({'error': 'Ruxsat yo\'q'}), 403
+    db.session.delete(p); db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/published-lessons/<int:pid>/download')
+def download_published_lesson(pid):
+    """Yuklangan darslikni .urok formatida yuklab olish"""
+    p = db.session.get(PublishedLesson, pid)
+    if not p: return jsonify({'error': 'not found'}), 404
+    if not p.allow_download:
+        return jsonify({'error': 'Yuklab olish ruxsat etilmagan'}), 403
+    blocks = json.loads(p.blocks_json or '[]')
+    payload = {'title': p.title, 'subtitle': p.subtitle, 'blocks': blocks}
+    encoded = encode_urok(payload)
+    return jsonify({'ok': True, 'data': encoded, 'filename': f'{p.title}.urok'})
 
 # ── Announcements ───────────────────────────────────────────
 @app.route('/api/announcements', methods=['GET'])

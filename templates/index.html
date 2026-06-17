@@ -1255,6 +1255,7 @@ body.dark mark{background:#854d0e;color:#fef9c3;}
       <button class="tb-dd-item" onclick="openPanel('homework_teacher')" id="tbtn-homework">📝 Vazifalar</button>
       <button class="tb-dd-item" onclick="openPanel('online_test_teacher')" id="tbtn-test">⏱ Test</button>
       <button class="tb-dd-item" onclick="openPanel('analytics')" id="tbtn-analytics">📈 Analytics</button>
+      <button class="tb-dd-item" onclick="openPanel('published')" id="tbtn-published">📤 Darsliklar</button>
       <button class="tb-dd-item" onclick="openTTSModal()">🔊 Matn o'qish</button>
     </div>
   </div>
@@ -1373,6 +1374,7 @@ body.dark mark{background:#854d0e;color:#fef9c3;}
       <button class="sf-submit-btn" onclick="submitStudentResults()">📤 Natijani yuborish</button>
       <button class="sf-download-btn" onclick="downloadResultFile()">⬇ Yuklab olish</button>
       <button onclick="openNotebook()" id="sf-notebook-btn" style="padding:7px 14px;border-radius:8px;background:rgba(255,255,255,.12);color:white;font-size:13px;font-weight:700;border:1.5px solid rgba(255,255,255,.25);cursor:pointer;white-space:nowrap">📓 Daftar</button>
+      <button onclick="openPanel('published')" style="padding:7px 14px;border-radius:8px;background:rgba(255,255,255,.12);color:white;font-size:13px;font-weight:700;border:1.5px solid rgba(255,255,255,.25);cursor:pointer;white-space:nowrap">📤 Darsliklar</button>
       <button onclick="toggleTheme()" style="padding:7px 10px;border-radius:8px;background:rgba(255,255,255,.12);color:white;border:none;cursor:pointer;font-size:16px" id="sf-theme-btn" title="Mavzu">🌙</button>
       <button class="sf-logout-btn" onclick="logoutRole()">🚪 Chiqish</button>
     </div>
@@ -2070,7 +2072,7 @@ function renderSidebar() {
     const div = document.createElement('div');
     div.className = 'lesson-item' + (l.id === state.currentLessonId ? ' active' : '');
     div.onclick = function() { selectLesson(l.id); };
-    div.innerHTML = '<span class="lesson-badge">' + l.block_count + '</span>' + (l.subtitle ? '<small style="color:#aaa;font-size:10px">' + l.subtitle + '</small><br>' : '') + l.title + '<div class="lesson-actions"><button class="lesson-act-btn" onclick="event.stopPropagation();duplicateLesson(' + l.id + ')">⧉</button><button class="lesson-act-btn" onclick="event.stopPropagation();deleteLesson(' + l.id + ')" style="color:var(--red)">✕</button></div>';
+    div.innerHTML = '<span class="lesson-badge">' + l.block_count + '</span>' + (l.subtitle ? '<small style="color:#aaa;font-size:10px">' + l.subtitle + '</small><br>' : '') + l.title + '<div class="lesson-actions"><button class="lesson-act-btn" onclick="event.stopPropagation();openPublishModal(' + l.id + ')" title="Saytga yuklash" style="color:var(--green)">📤</button><button class="lesson-act-btn" onclick="event.stopPropagation();duplicateLesson(' + l.id + ')">⧉</button><button class="lesson-act-btn" onclick="event.stopPropagation();deleteLesson(' + l.id + ')" style="color:var(--red)">✕</button></div>';
     list.appendChild(div);
   });
 }
@@ -2101,6 +2103,77 @@ async function deleteLesson(id) {
 async function duplicateLesson(id) {
   const l = await api('POST', '/api/lessons/' + id + '/duplicate');
   await loadLessons(); await selectLesson(l.id); toast('⧉ Nusxa olindi');
+}
+
+// ═══ PUBLISH MODAL ═══
+function openPublishModal(lessonId) {
+  const lesson = state.lessons.find(l => l.id === lessonId);
+  if (!lesson) return;
+  const stus = _users.filter(u => u.role === 'student');
+  const teachers = _users.filter(u => u.role === 'teacher' && u.id !== _me?.id);
+
+  const html = `<div style="display:flex;flex-direction:column;gap:14px">
+    <h3 style="margin:0;font-size:17px;color:#1d3557">📤 Darslikni saytga yuklash</h3>
+    <p style="font-size:13px;color:#6c757d;margin:0">Dars: <strong>${esc(lesson.title)}</strong></p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <label style="font-size:12px;font-weight:700;color:#6c757d">Ko'rinish (visibility):</label>
+      <select id="_pub_visibility" class="pf-sel" style="width:100%" onchange="_pubVisChanged(this.value)">
+        <option value="private">🔒 Faqat o'zimga</option>
+        <option value="teachers">👨‍🏫 Barcha o'qituvchilarga</option>
+        <option value="selected_teachers">👨‍🏫 Tanlangan o'qituvchilarga</option>
+        <option value="students">👨‍🎓 Barcha o'quvchilarga</option>
+        <option value="selected_students">👨‍🎓 Tanlangan o'quvchilarga</option>
+        <option value="public">🌐 Hammaga (public)</option>
+      </select>
+    </div>
+    <div id="_pub_viewers_area" style="display:none;flex-direction:column;gap:6px">
+      <label style="font-size:12px;font-weight:700;color:#6c757d">Kimlar ko'rsin:</label>
+      <div id="_pub_viewers_list" style="max-height:150px;overflow-y:auto;border:1px solid #dee2e6;border-radius:8px;padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:4px"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <label style="font-size:12px;font-weight:700;color:#6c757d">Yuklab olish ruxsati:</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="_pub_download"> <span style="font-size:13px">Ha, yuklab olish mumkin</span>
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="pb pb-cancel" onclick="_closeModal()">Bekor</button>
+      <button class="pb pb-g" onclick="_doPublish(${lessonId})">📤 Yuklash</button>
+    </div>
+  </div>`;
+  _showModal(html);
+  window._pubStus = stus;
+  window._pubTeachers = teachers;
+}
+
+function _pubVisChanged(val) {
+  const area = document.getElementById('_pub_viewers_area');
+  const list = document.getElementById('_pub_viewers_list');
+  if (val === 'selected_teachers') {
+    area.style.display = 'flex';
+    list.innerHTML = (window._pubTeachers || []).map(u =>
+      `<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" name="_pub_viewer" value="${u.id}"> ${esc(u.display||u.username)}</label>`).join('');
+  } else if (val === 'selected_students') {
+    area.style.display = 'flex';
+    list.innerHTML = (window._pubStus || []).map(u =>
+      `<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" name="_pub_viewer" value="${u.id}"> ${esc(u.display||u.username)}</label>`).join('');
+  } else {
+    area.style.display = 'none';
+  }
+}
+
+async function _doPublish(lessonId) {
+  const lesson = state.lessons.find(l => l.id === lessonId);
+  const visibility = document.getElementById('_pub_visibility')?.value || 'private';
+  const allowDownload = document.getElementById('_pub_download')?.checked || false;
+  const viewer_ids = [...document.querySelectorAll('input[name="_pub_viewer"]:checked')].map(c => parseInt(c.value));
+  try {
+    const res = await fetch('/api/published-lessons', {method:'POST',headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({lesson_id:lessonId, publisher_id:_me.id, title:lesson?.title||'', subtitle:lesson?.subtitle||'', visibility, allow_download:allowDownload, viewer_ids})
+    });
+    if (res.ok) { _closeModal(); toast('📤 Darslik yuklandi!'); }
+    else { const d = await res.json(); alert(d.error||'Xato'); }
+  } catch(e) { alert('Server xatosi'); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4934,7 +5007,8 @@ function openPanel(name) {
   _opEl.classList.add('open');
   const titles={chat:'💬 Chat',announce:'📢 Elonlar',schedule:'📅 Jadval',
                 resources:'📚 Resurslar',attendance:'📊 Davomat',
-                videos:'🎬 Video Darslar',groups:'👥 Guruhlar'};
+                videos:'🎬 Video Darslar',groups:'👥 Guruhlar',
+                published:'📤 Yuklangan darsliklar'};
   _opTitle.textContent = titles[name]||name;
   _opBody.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa">⏳ Yuklanmoqda...</div>';
   _resolveMe().then(()=>{
@@ -4946,6 +5020,7 @@ function openPanel(name) {
       case 'attendance': renderAttendance(); break;
       case 'videos':     renderVideos();     break;
       case 'groups':     renderGroups();     break;
+      case 'published':  renderPublished();  break;
     }
   });
 }
@@ -6350,6 +6425,131 @@ function _showModal(html){
 function _closeModal(){
   const overlay=document.getElementById('modal-overlay');
   if(overlay) overlay.classList.remove('open');
+}
+
+// ════════════════════════════════════════════════════════
+// PUBLISHED LESSONS PANEL
+// ════════════════════════════════════════════════════════
+async function renderPublished(){
+  await _loadPD();
+  const isT=_me?.role==='teacher';
+  const pubs=await fetch(`/api/published-lessons?user_id=${_me?.id||0}`).then(r=>r.json());
+  const visLabels={private:'🔒 Shaxsiy',teachers:'👨‍🏫 O\'qituvchilar',selected_teachers:'👨‍🏫 Tanlangan',students:'👨‍🎓 O\'quvchilar',selected_students:'👨‍🎓 Tanlangan','public':'🌐 Hamma'};
+  
+  let h='<div class="pw">';
+  h+=`<div class="ps"><div class="ps-h">📤 Yuklangan darsliklar <span style="margin-left:auto;font-size:12px;font-weight:400;opacity:.7">${pubs.length} ta</span></div><div class="ps-b">`;
+  
+  if(!pubs.length){
+    h+='<div style="text-align:center;padding:32px;color:#aaa"><div style="font-size:40px;margin-bottom:8px">📭</div><p>Hali yuklangan darsliklar yo\'q</p><p style="font-size:12px;margin-top:6px">Chap panelda dars yonidagi 📤 tugmasini bosing</p></div>';
+  } else {
+    h+='<div style="display:flex;flex-direction:column;gap:12px">';
+    pubs.forEach(p=>{
+      const vis=visLabels[p.visibility]||p.visibility;
+      h+=`<div style="border:1.5px solid #dee2e6;border-radius:12px;overflow:hidden;transition:border-color .15s" onmouseover="this.style.borderColor='#457b9d'" onmouseout="this.style.borderColor='#dee2e6'">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:#f8f9fa">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700;color:#1d3557;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.title)}</div>
+            <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;font-size:12px;color:#6c757d">
+              <span>${vis}</span>
+              <span>📦 ${p.block_count} blok</span>
+              <span>📅 ${p.published_at}</span>
+              <span>${p.allow_download?'⬇️ Yuklash ✓':'🚫 Yuklash ✕'}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+            <button class="pb pb-b" style="padding:5px 12px;font-size:12px" onclick="_viewPublished(${p.id})">👁 Ko'rish</button>
+            ${isT?`<button class="pb pb-o" style="padding:5px 12px;font-size:12px" onclick="_editPublished(${p.id})">✏️</button>`:''}
+            ${p.allow_download?`<button class="pb pb-g" style="padding:5px 12px;font-size:12px" onclick="_downloadPublished(${p.id})">⬇️</button>`:''}
+            ${isT?`<button class="pb pb-r" style="padding:5px 12px;font-size:12px" onclick="_deletePublished(${p.id})">🗑️</button>`:''}
+          </div>
+        </div>
+      </div>`;
+    });
+    h+='</div>';
+  }
+  h+='</div></div></div>';
+  _opBody.innerHTML=h;
+}
+
+async function _viewPublished(pid){
+  const data=await fetch(`/api/published-lessons/${pid}`).then(r=>r.json());
+  if(!data.blocks) return;
+  // Open preview overlay with published blocks
+  const overlay=document.getElementById('preview-overlay');
+  const contentEl=document.getElementById('preview-content');
+  const titleEl=document.getElementById('preview-lesson-title');
+  const sbEl=document.getElementById('preview-sidebar');
+  titleEl.textContent=data.title;
+  if(sbEl) sbEl.innerHTML=`<div style="padding:16px;text-align:center;color:#6c757d;font-size:13px">📤 Yuklangan darslik<br><strong>${esc(data.title)}</strong></div>`;
+  contentEl.innerHTML='';
+  data.blocks.sort((a,b)=>a.order-b.order).forEach(block=>{
+    const el=renderStudentBlock(block);
+    if(!el)return;
+    if(!['heading','hr'].includes(block.type)){
+      const card=document.createElement('div');
+      card.className='sf-block-card';
+      card.style.cssText='background:white;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.07);overflow:hidden;border:1.5px solid #dee2e6;padding:24px';
+      card.appendChild(el);
+      contentEl.appendChild(card);
+    }else{contentEl.appendChild(el);}
+  });
+  overlay.style.display='flex';
+}
+
+async function _editPublished(pid){
+  const data=await fetch(`/api/published-lessons/${pid}`).then(r=>r.json());
+  const visLabels={private:'🔒 Faqat o\'zimga',teachers:'👨‍🏫 Barcha o\'qituvchilarga',selected_teachers:'👨‍🏫 Tanlangan o\'qituvchilarga',students:'👨‍🎓 Barcha o\'quvchilarga',selected_students:'👨‍🎓 Tanlangan o\'quvchilarga','public':'🌐 Hammaga'};
+  const html=`<div style="display:flex;flex-direction:column;gap:14px">
+    <h3 style="margin:0;font-size:16px;color:#1d3557">✏️ Yuklangan darslikni tahrirlash</h3>
+    <p style="font-size:13px;color:#6c757d;margin:0">${esc(data.title)}</p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <label style="font-size:12px;font-weight:700;color:#6c757d">Ko'rinish:</label>
+      <select id="_epub_vis" class="pf-sel" style="width:100%">
+        ${Object.entries(visLabels).map(([k,v])=>`<option value="${k}" ${data.visibility===k?'selected':''}>${v}</option>`).join('')}
+      </select>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="_epub_dl" ${data.allow_download?'checked':''}> 
+      <span style="font-size:13px">Yuklab olish ruxsati</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="_epub_sync" checked> 
+      <span style="font-size:13px">Bloklarni hozirgi holatga yangilash</span>
+    </label>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="pb pb-cancel" onclick="_closeModal()">Bekor</button>
+      <button class="pb pb-b" onclick="_doEditPublished(${pid})">💾 Saqlash</button>
+    </div>
+  </div>`;
+  _showModal(html);
+}
+
+async function _doEditPublished(pid){
+  const vis=document.getElementById('_epub_vis')?.value;
+  const dl=document.getElementById('_epub_dl')?.checked;
+  const sync=document.getElementById('_epub_sync')?.checked;
+  await fetch(`/api/published-lessons/${pid}`,{method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({visibility:vis,allow_download:dl,sync_blocks:sync})});
+  _closeModal();
+  renderPublished();
+  toast('✅ Yangilandi');
+}
+
+async function _downloadPublished(pid){
+  const res=await fetch(`/api/published-lessons/${pid}/download`).then(r=>r.json());
+  if(res.error){alert(res.error);return;}
+  const blob=new Blob([res.data],{type:'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=res.filename||'darslik.urok';
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  toast('⬇️ Yuklab olindi');
+}
+
+async function _deletePublished(pid){
+  if(!confirm('Bu yuklangan darslikni o\'chirasizmi?'))return;
+  await fetch(`/api/published-lessons/${pid}`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:_me.id})});
+  renderPublished();
+  toast('🗑️ O\'chirildi');
 }
 
 // ════════════════════════════════════════════════════════
