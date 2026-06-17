@@ -342,6 +342,27 @@ class LessonComment(db.Model):
         }
 
 
+class Notification(db.Model):
+    __tablename__ = 'notification'
+    id          = db.Column(db.Integer, primary_key=True)
+    user_id     = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    type        = db.Column(db.String(30), default='comment')  # comment | mention | system
+    title       = db.Column(db.String(200), default='')
+    body        = db.Column(db.Text, default='')
+    link_id     = db.Column(db.Integer, nullable=True)  # published_lesson id
+    is_read     = db.Column(db.Boolean, default=False)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    user        = db.relationship('User', backref='notifications')
+
+    def to_dict(self):
+        return {
+            'id': self.id, 'user_id': self.user_id,
+            'type': self.type, 'title': self.title, 'body': self.body,
+            'link_id': self.link_id, 'is_read': self.is_read,
+            'created_at': self.created_at.strftime('%H:%M %d.%m.%Y'),
+        }
+
+
 class StudentProgress(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     block_id   = db.Column(db.Integer, db.ForeignKey('block.id'), nullable=False)
@@ -1952,6 +1973,18 @@ def add_lesson_comment(pid):
     if not p: return jsonify({'error': 'not found'}), 404
     comment = LessonComment(published_id=pid, user_id=user_id, content=content)
     db.session.add(comment); db.session.commit()
+    # Bildirishnoma: darslik egasiga xabar
+    commenter = db.session.get(User, user_id)
+    if p.publisher_id != user_id:
+        notif = Notification(
+            user_id=p.publisher_id, type='comment',
+            title=f'💬 Yangi izoh: {p.title}',
+            body=f'{commenter.display or commenter.username}: {content[:80]}',
+            link_id=pid
+        )
+        db.session.add(notif); db.session.commit()
+        # Real-time notification via socket
+        socketio.emit('new_notification', notif.to_dict(), room='global')
     return jsonify(comment.to_dict())
 
 @app.route('/api/published-lessons/comments/<int:cid>', methods=['DELETE'])
@@ -1965,6 +1998,39 @@ def delete_lesson_comment(cid):
     if c.user_id != user_id and user.role != 'teacher':
         return jsonify({'error': 'Ruxsat yo\'q'}), 403
     db.session.delete(c); db.session.commit()
+    return jsonify({'ok': True})
+
+# ── Notifications ───────────────────────────────────────────
+@app.route('/api/notifications', methods=['GET'])
+def get_notifications():
+    uid = request.args.get('user_id', type=int)
+    if not uid: return jsonify([])
+    notifs = db.session.execute(
+        db.select(Notification).where(Notification.user_id == uid)
+        .order_by(Notification.created_at.desc()).limit(50)
+    ).scalars().all()
+    return jsonify([n.to_dict() for n in notifs])
+
+@app.route('/api/notifications/unread-count', methods=['GET'])
+def unread_count():
+    uid = request.args.get('user_id', type=int)
+    if not uid: return jsonify({'count': 0})
+    count = db.session.execute(
+        db.select(db.func.count()).select_from(Notification)
+        .where(Notification.user_id == uid, Notification.is_read == False)
+    ).scalar() or 0
+    return jsonify({'count': count})
+
+@app.route('/api/notifications/mark-read', methods=['POST'])
+def mark_notifications_read():
+    d = request.json or {}
+    uid = d.get('user_id')
+    if not uid: return jsonify({'ok': True})
+    db.session.execute(
+        db.update(Notification).where(Notification.user_id == uid, Notification.is_read == False)
+        .values(is_read=True)
+    )
+    db.session.commit()
     return jsonify({'ok': True})
 
 # ── Announcements ───────────────────────────────────────────
