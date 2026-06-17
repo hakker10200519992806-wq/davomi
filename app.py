@@ -300,20 +300,28 @@ class PublishedLesson(db.Model):
                                     backref=db.backref('viewable_lessons', lazy=True), lazy=True)
 
     def to_dict(self, include_blocks=False):
+        try:
+            comment_count = len(self.comments) if hasattr(self, 'comments') and self.comments else 0
+        except Exception:
+            comment_count = 0
+        try:
+            viewer_ids = [u.id for u in self.viewers] if self.viewers else []
+        except Exception:
+            viewer_ids = []
         d = {
             'id': self.id, 'lesson_id': self.lesson_id,
             'publisher_id': self.publisher_id,
-            'publisher_name': self.publisher.display or self.publisher.username,
-            'publisher_avatar': self.publisher.avatar or '👤',
-            'publisher_role': self.publisher.role,
+            'publisher_name': self.publisher.display or self.publisher.username if self.publisher else '?',
+            'publisher_avatar': self.publisher.avatar or '👤' if self.publisher else '👤',
+            'publisher_role': self.publisher.role if self.publisher else 'teacher',
             'title': self.title, 'subtitle': self.subtitle,
             'visibility': self.visibility,
             'allow_download': self.allow_download,
             'block_count': len(json.loads(self.blocks_json or '[]')),
-            'comment_count': len(self.comments) if self.comments else 0,
-            'viewer_ids': [u.id for u in self.viewers],
-            'published_at': self.published_at.strftime('%d.%m.%Y %H:%M'),
-            'updated_at': self.updated_at.strftime('%d.%m.%Y %H:%M'),
+            'comment_count': comment_count,
+            'viewer_ids': viewer_ids,
+            'published_at': self.published_at.strftime('%d.%m.%Y %H:%M') if self.published_at else '',
+            'updated_at': self.updated_at.strftime('%d.%m.%Y %H:%M') if self.updated_at else '',
         }
         if include_blocks:
             d['blocks'] = json.loads(self.blocks_json or '[]')

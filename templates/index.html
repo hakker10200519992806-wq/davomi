@@ -2107,7 +2107,9 @@ async function duplicateLesson(id) {
 }
 
 // ═══ PUBLISH MODAL ═══
-function openPublishModal(lessonId) {
+async function openPublishModal(lessonId) {
+  await _loadPD();
+  if(!_me){toast('⚠️ Tizimga kiring');return;}
   const lesson = state.lessons.find(l => l.id === lessonId);
   if (!lesson) return;
   const stus = _users.filter(u => u.role === 'student');
@@ -2164,6 +2166,8 @@ function _pubVisChanged(val) {
 }
 
 async function _doPublish(lessonId) {
+  await _loadPD();
+  if(!_me){alert('Tizimga kiring');return;}
   const lesson = state.lessons.find(l => l.id === lessonId);
   const visibility = document.getElementById('_pub_visibility')?.value || 'private';
   const allowDownload = document.getElementById('_pub_download')?.checked || false;
@@ -2174,7 +2178,7 @@ async function _doPublish(lessonId) {
     });
     if (res.ok) { _closeModal(); toast('📤 Darslik yuklandi!'); }
     else { const d = await res.json(); alert(d.error||'Xato'); }
-  } catch(e) { alert('Server xatosi'); }
+  } catch(e) { alert('Server xatosi: '+e.message); }
 }
 
 // ═══════════════════════════════════════════════════════════
