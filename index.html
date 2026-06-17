@@ -1241,6 +1241,7 @@ body.dark mark{background:#854d0e;color:#fef9c3;}
   <button class="tb-btn" id="btn-export-zip" style="display:none" onclick="openZipExportModal()" title="HTML sayt sifatida ZIP">📦 HTML Sayt</button>
   <button class="split-toggle" onclick="openTeacherPreview()">👁 O'quvchi paneli</button>
   <button class="tb-btn" onclick="openPanel('chat')" id="tbtn-chat" style="background:rgba(255,255,255,.08)" title="Chat">💬 Chat</button>
+  <button class="tb-btn" onclick="openPanel('published')" id="tbtn-published-main" style="background:rgba(255,255,255,.08)" title="Yuklangan darsliklar">📤 Darsliklar<span id="dl-badge" style="display:none;margin-left:4px;background:#2a9d8f;color:white;border-radius:8px;padding:1px 5px;font-size:10px;font-weight:700"></span></button>
   <!-- Boshqa tugmalar — "Ko'proq" dropdown ichida -->
   <div class="tb-dropdown" id="topbar-more-dropdown">
     <button class="tb-btn tb-dropdown-toggle" onclick="toggleDropdown('topbar-more-dropdown')" title="Ko'proq">☰ Ko'proq</button>
@@ -5759,7 +5760,17 @@ async function openNotifications(){
 }
 
 // Load notif badge on init
-setTimeout(()=>{if(_me)_updateNotifBadge();},3000);
+setTimeout(()=>{if(_me)_updateNotifBadge();_updateDlBadge();},3000);
+
+// ═══ DOWNLOADED LESSONS BADGE ═══
+function _updateDlBadge(){
+  const downloaded=JSON.parse(localStorage.getItem('ll_downloaded_lessons')||'[]');
+  const badge=document.getElementById('dl-badge');
+  if(badge){
+    if(downloaded.length>0){badge.style.display='inline';badge.textContent=downloaded.length;}
+    else{badge.style.display='none';}
+  }
+}
 
 // Socket message_edited and message_deleted handlers
 if(typeof _sockExtraHandlers==='undefined'){
@@ -6547,7 +6558,60 @@ async function renderPublished(){
     h+='</div>';
   }
   h+='</div></div></div>';
+  
+  // Locally downloaded lessons
+  const downloaded=JSON.parse(localStorage.getItem('ll_downloaded_lessons')||'[]');
+  if(downloaded.length){
+    h+=`<div class="ps"><div class="ps-h">📥 Yuklab olingan darsliklar (qurilmada) <span style="margin-left:auto;font-size:12px;font-weight:400;opacity:.7">${downloaded.length} ta</span></div><div class="ps-b">`;
+    h+='<div style="display:flex;flex-direction:column;gap:10px">';
+    downloaded.forEach((dl,idx)=>{
+      h+=`<div style="border:1.5px solid #dee2e6;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;color:#1d3557">${esc(dl.title||'Darslik')}</div>
+          <div style="font-size:12px;color:#6c757d;margin-top:2px">${esc(dl.publisher_name||'')} • ${dl.blocks?.length||0} blok • ${new Date(dl.downloaded_at).toLocaleDateString()}</div>
+        </div>
+        <button class="pb pb-b" style="padding:5px 12px;font-size:12px" onclick="_openDownloadedLesson(${idx})">👁 Ko'rish</button>
+        <button class="pb pb-r" style="padding:5px 12px;font-size:12px" onclick="_removeDownloaded(${idx})">🗑</button>
+      </div>`;
+    });
+    h+='</div></div></div>';
+  }
+  
   _opBody.innerHTML=h;
+}
+
+function _openDownloadedLesson(idx){
+  const downloaded=JSON.parse(localStorage.getItem('ll_downloaded_lessons')||'[]');
+  const dl=downloaded[idx];
+  if(!dl||!dl.blocks) return;
+  const overlay=document.getElementById('preview-overlay');
+  const contentEl=document.getElementById('preview-content');
+  const titleEl=document.getElementById('preview-lesson-title');
+  const sbEl=document.getElementById('preview-sidebar');
+  titleEl.textContent=dl.title||'Darslik';
+  if(sbEl) sbEl.innerHTML=`<div style="padding:16px;text-align:center;color:#6c757d;font-size:13px">📥 Yuklab olingan<br><strong>${esc(dl.title)}</strong></div>`;
+  contentEl.innerHTML='';
+  dl.blocks.sort((a,b)=>a.order-b.order).forEach(block=>{
+    const el=renderStudentBlock(block);
+    if(!el)return;
+    if(!['heading','hr'].includes(block.type)){
+      const card=document.createElement('div');
+      card.className='sf-block-card';
+      card.style.cssText='background:white;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.07);overflow:hidden;border:1.5px solid #dee2e6;padding:24px';
+      card.appendChild(el);contentEl.appendChild(card);
+    }else{contentEl.appendChild(el);}
+  });
+  overlay.style.display='flex';
+}
+
+function _removeDownloaded(idx){
+  if(!confirm('Yuklab olingan darslikni o\'chirasizmi?'))return;
+  const downloaded=JSON.parse(localStorage.getItem('ll_downloaded_lessons')||'[]');
+  downloaded.splice(idx,1);
+  localStorage.setItem('ll_downloaded_lessons',JSON.stringify(downloaded));
+  _updateDlBadge();
+  renderPublished();
+  toast('🗑️ O\'chirildi');
 }
 
 async function _viewPublished(pid){
@@ -6632,6 +6696,7 @@ async function _downloadPublished(pid){
   const a=document.createElement('a');a.href=url;a.download=res.filename||'darslik.urok';
   document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   toast('⬇️ Yuklab olindi va saqlandi');
+  _updateDlBadge();
 }
 
 async function _deletePublished(pid){
