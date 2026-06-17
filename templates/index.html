@@ -469,6 +469,16 @@ body.dark .toolbar-dd-menu .tb-dd-item:hover{background:#2d2b45!important;color:
 body.dark #notebook-box{background:#1c1a2e;color:#e0deef}
 body.dark #nb-search,body.dark #nb-filter-lang,body.dark #nb-filter-cat{background:#252340;color:#e0deef;border-color:#3d3b5a}
 body.dark #nb-title-inp,body.dark #nb-cat-inp,body.dark #nb-editor{background:#252340;color:#e0deef;border-color:#3d3b5a}
+/* Notebook toolbar buttons */
+.nb-tb-btn{padding:5px 10px;border-radius:6px;border:none;background:transparent;cursor:pointer;font-size:13px;color:#333;transition:all .1s}
+.nb-tb-btn:hover{background:#e9ecef;color:#1d3557}
+.nb-tb-btn:active{background:#dee2e6}
+body.dark .nb-tb-btn{color:#a8dadc}
+body.dark .nb-tb-btn:hover{background:#3d3b5a}
+#nb-editor[contenteditable]:empty:before{content:attr(data-placeholder);color:#aaa;pointer-events:none;white-space:pre-line}
+#nb-editor[contenteditable] ul,#nb-editor[contenteditable] ol{padding-left:20px;margin:4px 0}
+#nb-editor[contenteditable] li{margin-bottom:2px}
+body.dark #nb-toolbar{background:#1c1a2e;border-color:#2d2b45}
 body.dark .nb-tab.active{color:#a78bfa!important;border-bottom-color:#a78bfa!important}
 body.dark #nb-tabs{background:#16142a!important;border-color:#2d2b45!important}
 body.dark .nb-card{background:#252340;border-color:#3d3b5a;color:#e0deef}
@@ -1540,21 +1550,46 @@ body.dark mark{background:#854d0e;color:#fef9c3;}
         <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
           <span style="font-size:12px;color:#6c757d;font-weight:600">Til:</span>
           <span id="nb-lang-indicator" style="padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#f0f8ff;color:#457b9d;border:1px solid #c8dfef">avtomatik aniqlanadi</span>
-          <button onclick="playTTS(document.getElementById('nb-editor').value,'auto')" style="padding:4px 12px;border-radius:6px;border:1px solid #dee2e6;background:white;cursor:pointer;font-size:12px;margin-left:auto">🔊 O'qib eshitish</button>
+          <button onclick="playTTS(document.getElementById('nb-editor').innerText,'auto')" style="padding:4px 12px;border-radius:6px;border:1px solid #dee2e6;background:white;cursor:pointer;font-size:12px;margin-left:auto">🔊 O'qib eshitish</button>
         </div>
-        <!-- Editor -->
-        <textarea id="nb-editor"
-          placeholder="Bu yerga rus yoki o'zbek tilida yozing...&#10;Masalan: Сегодня я выучил слово 'понедельник' — dushanba.&#10;&#10;Eslatmalar, lug'at, grammatika qoidalari — istalgan narsa!"
-          oninput="nbDetectLang(this.value)"
-          style="flex:1;width:100%;min-height:220px;padding:14px;border:1.5px solid #dee2e6;border-radius:10px;font-size:15px;line-height:1.7;font-family:inherit;resize:vertical"></textarea>
-        <!-- Toolbar -->
+        <!-- Editor Toolbar -->
+        <div id="nb-toolbar" style="display:flex;gap:2px;margin-bottom:8px;flex-wrap:wrap;align-items:center;background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:4px 8px">
+          <button onclick="nbExecCmd('bold')" title="Qalin (Ctrl+B)" class="nb-tb-btn"><b>B</b></button>
+          <button onclick="nbExecCmd('italic')" title="Kursiv (Ctrl+I)" class="nb-tb-btn"><i>I</i></button>
+          <button onclick="nbExecCmd('underline')" title="Tagiga chizish (Ctrl+U)" class="nb-tb-btn" style="text-decoration:underline">U</button>
+          <button onclick="nbExecCmd('strikeThrough')" title="Ustiga chizish" class="nb-tb-btn" style="text-decoration:line-through">S</button>
+          <span style="width:1px;height:20px;background:#dee2e6;margin:0 6px"></span>
+          <button onclick="nbExecCmd('insertUnorderedList')" title="Ro'yxat" class="nb-tb-btn">• List</button>
+          <button onclick="nbExecCmd('insertOrderedList')" title="Raqamli ro'yxat" class="nb-tb-btn">1.</button>
+          <span style="width:1px;height:20px;background:#dee2e6;margin:0 6px"></span>
+          <button onclick="nbExecCmd('undo')" title="Orqaga (Ctrl+Z)" class="nb-tb-btn">↩</button>
+          <button onclick="nbExecCmd('redo')" title="Oldinga (Ctrl+Y)" class="nb-tb-btn">↪</button>
+          <span style="width:1px;height:20px;background:#dee2e6;margin:0 6px"></span>
+          <button onclick="nbExecCmd('removeFormat')" title="Formatlashni olib tashlash" class="nb-tb-btn">✕ Tozalash</button>
+          <select onchange="nbExecCmd('fontSize',false,this.value);this.selectedIndex=0" title="Shrift o'lchami" style="padding:4px 6px;border:1px solid #dee2e6;border-radius:4px;font-size:12px;background:white;cursor:pointer">
+            <option value="" disabled selected>Hajm</option>
+            <option value="2">Kichik</option>
+            <option value="3">Oddiy</option>
+            <option value="4">Katta</option>
+            <option value="5">Juda katta</option>
+          </select>
+          <select onchange="nbSetColor(this.value);this.selectedIndex=0" title="Matn rangi" style="padding:4px 6px;border:1px solid #dee2e6;border-radius:4px;font-size:12px;background:white;cursor:pointer">
+            <option value="" disabled selected>Rang</option>
+            <option value="#212529">⬛ Qora</option>
+            <option value="#e63946">🟥 Qizil</option>
+            <option value="#457b9d">🟦 Ko'k</option>
+            <option value="#2a9d8f">🟩 Yashil</option>
+            <option value="#e76f51">🟧 Sariq</option>
+            <option value="#6a4c93">🟪 Binafsha</option>
+          </select>
+        </div>
+        <!-- Rich Editor (contenteditable) -->
+        <div id="nb-editor" contenteditable="true"
+          data-placeholder="Bu yerga rus yoki o'zbek tilida yozing...&#10;Masalan: Сегодня я выучил слово 'понедельник' — dushanba."
+          oninput="nbOnInput()"
+          style="flex:1;width:100%;min-height:220px;padding:14px;border:1.5px solid #dee2e6;border-radius:10px;font-size:15px;line-height:1.7;font-family:inherit;resize:vertical;overflow-y:auto;outline:none;background:white"></div>
+        <!-- Footer actions -->
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
-          <div style="display:flex;gap:4px;background:#f8f9fa;border-radius:8px;padding:4px">
-            <button onclick="nbInsertText('**','**')" title="Qalin" style="padding:5px 10px;border-radius:6px;border:none;background:transparent;cursor:pointer;font-weight:700;font-size:13px">B</button>
-            <button onclick="nbInsertText('_','_')" title="Kursiv" style="padding:5px 10px;border-radius:6px;border:none;background:transparent;cursor:pointer;font-style:italic;font-size:13px">I</button>
-            <button onclick="nbInsertText('• ','')" title="Ro'yxat" style="padding:5px 10px;border-radius:6px;border:none;background:transparent;cursor:pointer;font-size:13px">• List</button>
-            <button onclick="nbInsertText('→ ','')" title="O'q" style="padding:5px 10px;border-radius:6px;border:none;background:transparent;cursor:pointer;font-size:13px">→</button>
-          </div>
           <span style="font-size:12px;color:#6c757d" id="nb-char-count">0 belgi</span>
           <div style="margin-left:auto;display:flex;gap:8px">
             <button onclick="nbDiscard()" style="padding:8px 18px;border-radius:8px;background:#f8f9fa;border:1px solid #dee2e6;color:#555;cursor:pointer;font-size:14px">🗑 Bekor</button>
@@ -4308,7 +4343,7 @@ function nbNewNote() {
 
 function nbClearEditor() {
   document.getElementById('nb-title-inp').value = '';
-  document.getElementById('nb-editor').value = '';
+  document.getElementById('nb-editor').innerHTML = '';
   document.getElementById('nb-cat-inp').value = 'free';
   document.getElementById('nb-char-count').textContent = '0 belgi';
   document.getElementById('nb-lang-indicator').textContent = 'avtomatik aniqlanadi';
@@ -4339,7 +4374,9 @@ function nbDetectLang(text) {
 }
 
 function nbSave() {
-  const text  = document.getElementById('nb-editor').value.trim();
+  const editorEl = document.getElementById('nb-editor');
+  const text  = editorEl.innerText.trim();
+  const html  = editorEl.innerHTML.trim();
   if (!text) { toast('⚠️ Matn yozing'); return; }
   const title = document.getElementById('nb-title-inp').value.trim();
   const cat   = document.getElementById('nb-cat-inp').value;
@@ -4351,12 +4388,12 @@ function nbSave() {
   if (_nbCurrentId) {
     const idx = notes.findIndex(n => n.id === _nbCurrentId);
     if (idx !== -1) {
-      notes[idx] = {...notes[idx], title, text, lang, cat, updatedAt: now};
+      notes[idx] = {...notes[idx], title, text, html, lang, cat, updatedAt: now};
     }
   } else {
     notes.push({
       id: 'nb_' + now + '_' + Math.random().toString(36).slice(2,7),
-      title, text, lang, cat,
+      title, text, html, lang, cat,
       createdAt: now, updatedAt: now
     });
   }
@@ -4393,7 +4430,7 @@ function nbViewNote(id) {
     '<span style="padding:2px 8px;border-radius:20px;font-size:11px;background:#f0f8ff;color:#457b9d;border:1px solid #c8dfef">' + (langLabels[note.lang]||'?') + '</span>' +
     '<span style="font-size:12px;color:#aaa">' + date + '</span>';
 
-  document.getElementById('nb-view-body').textContent = note.text;
+  document.getElementById('nb-view-body').innerHTML = note.html || esc(note.text||'').replace(/\n/g,'<br>');
 
   // Show view pane (override tabs)
   document.getElementById('nb-list-pane').style.display  = 'none';
@@ -4432,7 +4469,7 @@ function nbEditCurrent() {
   const note = notes.find(n => n.id === _nbCurrentId);
   if (!note) return;
   document.getElementById('nb-title-inp').value = note.title || '';
-  document.getElementById('nb-editor').value = note.text || '';
+  document.getElementById('nb-editor').innerHTML = note.html || note.text || '';
   document.getElementById('nb-cat-inp').value = note.cat || 'free';
   nbDetectLang(note.text || '');
   nbShowTab('write');
@@ -4448,17 +4485,20 @@ function nbDeleteCurrent() {
   nbShowTab('list');
 }
 
-// Matn formatlash uchun (bold, italic va h.k.)
-function nbInsertText(before, after) {
-  const ta = document.getElementById('nb-editor');
-  if (!ta) return;
-  const start = ta.selectionStart, end = ta.selectionEnd;
-  const selected = ta.value.slice(start, end);
-  const newText = before + (selected || 'matn') + after;
-  ta.value = ta.value.slice(0, start) + newText + ta.value.slice(end);
-  ta.focus();
-  ta.setSelectionRange(start + before.length, start + before.length + (selected || 'matn').length);
-  nbDetectLang(ta.value);
+// Rich text formatlash
+function nbExecCmd(cmd, ui, val) {
+  document.execCommand(cmd, ui||false, val||null);
+  document.getElementById('nb-editor')?.focus();
+}
+function nbSetColor(color) {
+  document.execCommand('foreColor', false, color);
+  document.getElementById('nb-editor')?.focus();
+}
+function nbOnInput() {
+  const el = document.getElementById('nb-editor');
+  if (!el) return;
+  const text = el.innerText || '';
+  nbDetectLang(text);
 }
 
 // Test boshlanganda daftar tugmasini bloklash
