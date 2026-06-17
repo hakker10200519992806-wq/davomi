@@ -6449,15 +6449,18 @@ async function renderPublished(){
         <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:#f8f9fa">
           <div style="flex:1;min-width:0">
             <div style="font-size:15px;font-weight:700;color:#1d3557;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.title)}</div>
-            <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;font-size:12px;color:#6c757d">
+            <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;font-size:12px;color:#6c757d;align-items:center">
+              <span style="display:flex;align-items:center;gap:4px">${esc(p.publisher_avatar||'👤')} <strong>${esc(p.publisher_name)}</strong></span>
               <span>${vis}</span>
               <span>📦 ${p.block_count} blok</span>
+              <span>💬 ${p.comment_count||0}</span>
               <span>📅 ${p.published_at}</span>
               <span>${p.allow_download?'⬇️ Yuklash ✓':'🚫 Yuklash ✕'}</span>
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
             <button class="pb pb-b" style="padding:5px 12px;font-size:12px" onclick="_viewPublished(${p.id})">👁 Ko'rish</button>
+            <button class="pb pb-p" style="padding:5px 12px;font-size:12px" onclick="_openComments(${p.id})">💬 Izohlar</button>
             ${isT?`<button class="pb pb-o" style="padding:5px 12px;font-size:12px" onclick="_editPublished(${p.id})">✏️</button>`:''}
             ${p.allow_download?`<button class="pb pb-g" style="padding:5px 12px;font-size:12px" onclick="_downloadPublished(${p.id})">⬇️</button>`:''}
             ${isT?`<button class="pb pb-r" style="padding:5px 12px;font-size:12px" onclick="_deletePublished(${p.id})">🗑️</button>`:''}
@@ -6550,6 +6553,63 @@ async function _deletePublished(pid){
   await fetch(`/api/published-lessons/${pid}`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:_me.id})});
   renderPublished();
   toast('🗑️ O\'chirildi');
+}
+
+// ═══ COMMENTS FOR PUBLISHED LESSONS ═══
+async function _openComments(pid){
+  const comments=await fetch(`/api/published-lessons/${pid}/comments`).then(r=>r.json());
+  
+  let commentsHtml='';
+  if(!comments.length){
+    commentsHtml='<div style="text-align:center;padding:20px;color:#aaa;font-size:13px">Hali izohlar yo\'q. Birinchi bo\'ling!</div>';
+  } else {
+    commentsHtml=comments.map(c=>{
+      const isMyComment=_me&&c.user_id===_me.id;
+      const isTeacher=_me?.role==='teacher';
+      return `<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f1f3f5" id="lc-${c.id}">
+        <div style="width:32px;height:32px;border-radius:50%;background:${c.user_role==='teacher'?'#e63946':'#457b9d'};color:white;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${esc(c.user_avatar)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span style="font-size:13px;font-weight:700;color:#1d3557">${esc(c.user_name)}</span>
+            <span style="font-size:10px;color:#aaa">${c.created_at}</span>
+            ${isMyComment||isTeacher?`<button onclick="_delComment(${pid},${c.id})" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#e63946;font-size:11px;padding:2px 6px;border-radius:4px" title="O'chirish">🗑</button>`:''}
+          </div>
+          <div style="font-size:14px;line-height:1.5;color:#333">${esc(c.content).replace(/\\n/g,'<br>')}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const html=`<div style="display:flex;flex-direction:column;gap:14px;max-width:560px">
+    <h3 style="margin:0;font-size:16px;color:#1d3557">💬 Izohlar</h3>
+    <div style="max-height:350px;overflow-y:auto" id="_lc_list">${commentsHtml}</div>
+    ${_me?`<div style="display:flex;gap:8px;align-items:flex-end">
+      <textarea id="_lc_inp" placeholder="Izoh yozing..." style="flex:1;padding:8px 12px;border:1.5px solid #dee2e6;border-radius:8px;font-size:14px;font-family:inherit;resize:none;min-height:40px;max-height:80px"></textarea>
+      <button class="pb pb-g" onclick="_addComment(${pid})" style="padding:8px 16px;flex-shrink:0">➤</button>
+    </div>`:'<p style="font-size:13px;color:#aaa">Izoh yozish uchun tizimga kiring</p>'}
+    <div style="display:flex;justify-content:flex-end">
+      <button class="pb pb-cancel" onclick="_closeModal()">Yopish</button>
+    </div>
+  </div>`;
+  _showModal(html);
+}
+
+async function _addComment(pid){
+  const inp=document.getElementById('_lc_inp');
+  const content=inp?.value.trim();
+  if(!content){toast('⚠️ Izoh yozing');return;}
+  await fetch(`/api/published-lessons/${pid}/comments`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:_me.id,content})});
+  _closeModal();
+  _openComments(pid); // Reload
+  toast('💬 Izoh qo\'shildi');
+}
+
+async function _delComment(pid,cid){
+  if(!confirm('Izohni o\'chirasizmi?'))return;
+  await fetch(`/api/published-lessons/comments/${cid}`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:_me.id})});
+  const el=document.getElementById('lc-'+cid);
+  if(el)el.remove();
+  toast('🗑️ Izoh o\'chirildi');
 }
 
 // ════════════════════════════════════════════════════════

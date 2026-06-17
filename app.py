@@ -304,10 +304,13 @@ class PublishedLesson(db.Model):
             'id': self.id, 'lesson_id': self.lesson_id,
             'publisher_id': self.publisher_id,
             'publisher_name': self.publisher.display or self.publisher.username,
+            'publisher_avatar': self.publisher.avatar or '👤',
+            'publisher_role': self.publisher.role,
             'title': self.title, 'subtitle': self.subtitle,
             'visibility': self.visibility,
             'allow_download': self.allow_download,
             'block_count': len(json.loads(self.blocks_json or '[]')),
+            'comment_count': len(self.comments) if self.comments else 0,
             'viewer_ids': [u.id for u in self.viewers],
             'published_at': self.published_at.strftime('%d.%m.%Y %H:%M'),
             'updated_at': self.updated_at.strftime('%d.%m.%Y %H:%M'),
@@ -315,6 +318,28 @@ class PublishedLesson(db.Model):
         if include_blocks:
             d['blocks'] = json.loads(self.blocks_json or '[]')
         return d
+
+
+class LessonComment(db.Model):
+    __tablename__ = 'lesson_comment'
+    id            = db.Column(db.Integer, primary_key=True)
+    published_id  = db.Column(db.Integer, db.ForeignKey('published_lesson.id'), nullable=False)
+    user_id       = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    content       = db.Column(db.Text, nullable=False)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    user          = db.relationship('User', backref='lesson_comments')
+    published     = db.relationship('PublishedLesson', backref=db.backref('comments', lazy=True, cascade='all, delete-orphan'))
+
+    def to_dict(self):
+        return {
+            'id': self.id, 'published_id': self.published_id,
+            'user_id': self.user_id,
+            'user_name': self.user.display or self.user.username,
+            'user_avatar': self.user.avatar or '👤',
+            'user_role': self.user.role,
+            'content': self.content,
+            'created_at': self.created_at.strftime('%H:%M %d.%m.%Y'),
+        }
 
 
 class StudentProgress(db.Model):
@@ -1906,6 +1931,41 @@ def download_published_lesson(pid):
     payload = {'title': p.title, 'subtitle': p.subtitle, 'blocks': blocks}
     encoded = encode_urok(payload)
     return jsonify({'ok': True, 'data': encoded, 'filename': f'{p.title}.urok'})
+
+# ── Published Lessons: Comments ─────────────────────────────
+@app.route('/api/published-lessons/<int:pid>/comments', methods=['GET'])
+def get_lesson_comments(pid):
+    comments = db.session.execute(
+        db.select(LessonComment).where(LessonComment.published_id == pid)
+        .order_by(LessonComment.created_at.asc())
+    ).scalars().all()
+    return jsonify([c.to_dict() for c in comments])
+
+@app.route('/api/published-lessons/<int:pid>/comments', methods=['POST'])
+def add_lesson_comment(pid):
+    d = request.json or {}
+    user_id = d.get('user_id')
+    content = d.get('content', '').strip()
+    if not user_id or not content:
+        return jsonify({'error': 'user_id va content kerak'}), 400
+    p = db.session.get(PublishedLesson, pid)
+    if not p: return jsonify({'error': 'not found'}), 404
+    comment = LessonComment(published_id=pid, user_id=user_id, content=content)
+    db.session.add(comment); db.session.commit()
+    return jsonify(comment.to_dict())
+
+@app.route('/api/published-lessons/comments/<int:cid>', methods=['DELETE'])
+def delete_lesson_comment(cid):
+    d = request.json or {}
+    c = db.session.get(LessonComment, cid)
+    if not c: return jsonify({'error': 'not found'}), 404
+    user_id = d.get('user_id')
+    user = db.session.get(User, user_id) if user_id else None
+    if not user: return jsonify({'error': 'user kerak'}), 400
+    if c.user_id != user_id and user.role != 'teacher':
+        return jsonify({'error': 'Ruxsat yo\'q'}), 403
+    db.session.delete(c); db.session.commit()
+    return jsonify({'ok': True})
 
 # ── Announcements ───────────────────────────────────────────
 @app.route('/api/announcements', methods=['GET'])
