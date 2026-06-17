@@ -2619,50 +2619,69 @@ function renderSVocabTimer(block) {
   const items = d.items || [];
   if (!items.length) return null;
   const el = document.createElement('div');
+
+  // Activation button — timer starts only after click
+  el.innerHTML =
+    '<div class="s-section-title"><div class="s-section-bar" style="background:#0ea5e9"></div>' +
+    '<div class="s-section-label" style="background:#0ea5e9">⏱ ' + esc(d.title || 'Yodlash') + '</div></div>' +
+    '<div id="vt-inactive-' + block.id + '" style="text-align:center;padding:32px 20px">' +
+    '<div style="font-size:48px;margin-bottom:12px;opacity:.6">🧠</div>' +
+    '<p style="font-size:15px;color:#555;margin-bottom:6px">Bu blokda <strong>' + items.length + '</strong> ta so\'z bor</p>' +
+    '<p style="font-size:13px;color:#6c757d;margin-bottom:20px">Taymer: ' + (d.timer_sec||60) + ' soniya. So\'zlarni yodlab, keyin test topshirasiz.</p>' +
+    '<button onclick="_activateVocabTimer(' + block.id + ')" style="padding:14px 36px;border-radius:12px;background:linear-gradient(135deg,#0ea5e9,#2563eb);color:white;font-size:16px;font-weight:800;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(14,165,233,.3);transition:all .15s">▶ Xotira + Lug\'at funksiyasini aktivlashtirish</button>' +
+    '</div>' +
+    '<div id="vt-active-' + block.id + '" style="display:none"></div>';
+
+  // Store block data
+  window['_vtBlock_' + block.id] = {d, el, items};
+  return el;
+}
+
+function _activateVocabTimer(blockId) {
+  const stored = window['_vtBlock_' + blockId];
+  if (!stored) return;
+  const {d, el, items} = stored;
   let timeLeft = d.timer_sec || 60;
-  let timerEnded = false;
-  let timerInterval = null;
+
+  // Hide inactive, show active
+  const inactive = el.querySelector('#vt-inactive-' + blockId);
+  const active = el.querySelector('#vt-active-' + blockId);
+  if (inactive) inactive.style.display = 'none';
+  if (active) active.style.display = 'block';
 
   function buildWordGrid() {
-    return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin:10px 0">' +
+    return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin:10px 0;max-height:340px;overflow-y:auto">' +
       items.map((item, i) =>
-        '<div class="vt-word-card" style="padding:10px 14px;border:1.5px solid #dee2e6;border-radius:8px;display:flex;align-items:center;gap:8px;background:white;font-size:14px">' +
-        '<span class="vt-word-num" style="background:#457b9d;color:white;border-radius:4px;min-width:22px;text-align:center;font-size:11px;font-weight:700;padding:1px 5px">' + (i + 1) + '</span>' +
-        '<span style="font-weight:600;flex:1">' + esc(item.ru || '') + '</span>' +
-        '<span style="color:#6c757d;font-size:13px">— ' + esc(item.uz || '') + '</span>' +
+        '<div style="padding:10px 14px;border:1.5px solid #dee2e6;border-radius:8px;display:flex;align-items:center;gap:8px;background:white;font-size:14px">' +
+        '<span style="background:#457b9d;color:white;border-radius:4px;min-width:22px;text-align:center;font-size:11px;font-weight:700;padding:1px 5px;flex-shrink:0">' + (i + 1) + '</span>' +
+        '<span style="font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(item.ru || '') + '</span>' +
+        '<span style="color:#6c757d;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40%">— ' + esc(item.uz || '') + '</span>' +
         '</div>'
       ).join('') + '</div>';
   }
 
-  el.innerHTML =
-    '<div class="s-section-title"><div class="s-section-bar" style="background:#0ea5e9"></div>' +
-    '<div class="s-section-label" style="background:#0ea5e9">⏱ ' + esc(d.title || 'Yodlash') + '</div></div>' +
+  active.innerHTML =
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">' +
-    '<span class="vt-timer-pill" id="vt-timer-' + block.id + '" style="display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700;background:rgba(14,165,233,.15);border:1.5px solid #0ea5e9;color:#0ea5e9">⏱ ' + timeLeft + ' soniya</span>' +
+    '<span id="vt-timer-' + blockId + '" style="display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700;background:rgba(14,165,233,.15);border:1.5px solid #0ea5e9;color:#0ea5e9">⏱ ' + timeLeft + ' soniya</span>' +
     '<button onclick="playTTS(\'' + items.map(it=>it.ru).join(', ').replace(/'/g,"\\'") + '\',\'auto\')" style="padding:4px 12px;border-radius:6px;border:1px solid #dee2e6;background:white;cursor:pointer;font-size:12px">🔊 Hammasini eshit</button>' +
     '</div>' +
-    '<div id="vt-words-' + block.id + '">' + buildWordGrid() + '</div>' +
-    '<button id="vt-btn-' + block.id + '" class="vt-start-test-btn" style="width:100%;padding:11px;border-radius:8px;background:#0ea5e9;color:white;font-size:14px;font-weight:700;border:none;cursor:not-allowed;margin-top:10px;opacity:.4" disabled onclick="startVTTest(' + block.id + ')">🧪 Test boshlash (vaqt tugaganida)</button>';
+    '<div id="vt-words-' + blockId + '">' + buildWordGrid() + '</div>' +
+    '<button id="vt-btn-' + blockId + '" style="width:100%;padding:11px;border-radius:8px;background:#0ea5e9;color:white;font-size:14px;font-weight:700;border:none;cursor:not-allowed;margin-top:10px;opacity:.4" disabled onclick="startVTTest(' + blockId + ')">🧪 Test boshlash (vaqt tugaganida)</button>';
 
   // Timer countdown
-  timerInterval = setInterval(function() {
+  const timerInterval = setInterval(function() {
     timeLeft--;
-    const pill = el.querySelector('#vt-timer-' + block.id);
+    const pill = document.getElementById('vt-timer-' + blockId);
     if (pill) pill.textContent = '⏱ ' + timeLeft + ' soniya';
     if (timeLeft <= 0) {
       clearInterval(timerInterval);
-      timerEnded = true;
-      const wordsDiv = el.querySelector('#vt-words-' + block.id);
-      if (wordsDiv) { wordsDiv.style.opacity = '0'; setTimeout(()=>{wordsDiv.style.display='none';},300); wordsDiv.style.transition='opacity .3s'; }
+      const wordsDiv = document.getElementById('vt-words-' + blockId);
+      if (wordsDiv) { wordsDiv.style.opacity = '0'; wordsDiv.style.transition='opacity .3s'; setTimeout(()=>{wordsDiv.style.display='none';},300); }
       if (pill) { pill.textContent = '✅ Vaqt tugadi!'; pill.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700;background:rgba(239,68,68,.1);border:1.5px solid #f87171;color:#f87171'; }
-      const btn = el.querySelector('#vt-btn-' + block.id);
+      const btn = document.getElementById('vt-btn-' + blockId);
       if (btn) { btn.disabled = false; btn.style.cursor = 'pointer'; btn.style.opacity = '1'; btn.style.background = '#2a9d8f'; btn.textContent = '🧪 Testni boshlash'; }
     }
   }, 1000);
-
-  // Store block data for test
-  window['_vtBlock_' + block.id] = {d, el, items};
-  return el;
 }
 
 // Store for active VT tests
