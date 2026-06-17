@@ -5715,6 +5715,33 @@ async function renderGroups(){
   const isT=_me?.role==='teacher';
   const stus=_users.filter(u=>u.role==='student');
   let h='<div class="pw">';
+  
+  // ═══ O'quvchi login/parol boshqaruvi (faqat o'qituvchi) ═══
+  if(isT){
+    h+=`<div class="ps"><div class="ps-h">🔑 O'quvchi login/parol boshqaruvi</div><div class="ps-b">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="pb pb-g" onclick="_openCreateStudentModal()">➕ Yangi o'quvchi yaratish</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="att-tbl" style="min-width:500px">
+          <thead><tr><th>👤 Ism</th><th>Login</th><th>Parol</th><th>Amallar</th></tr></thead>
+          <tbody>
+            ${stus.map(u=>`<tr>
+              <td><strong>${esc(u.display||u.username)}</strong></td>
+              <td><code style="background:#f1f3f5;padding:2px 8px;border-radius:4px;font-size:13px">${esc(u.username)}</code></td>
+              <td><span style="color:#aaa;font-size:12px">••••••</span></td>
+              <td style="white-space:nowrap">
+                <button class="pb pb-b" style="padding:4px 10px;font-size:12px" onclick="_editStudentCreds(${u.id},'${esc(u.username)}','${esc(u.display||u.username)}')" title="Tahrirlash">✏️ Tahrirlash</button>
+                <button class="pb pb-r" style="padding:4px 10px;font-size:12px" onclick="_deleteStudent(${u.id},'${esc(u.display||u.username)}')" title="O'chirish">🗑️ O'chirish</button>
+              </td>
+            </tr>`).join('')}
+            ${!stus.length?'<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px">O\'quvchilar yo\'q</td></tr>':''}
+          </tbody>
+        </table>
+      </div>
+    </div></div>`;
+  }
+  
   if(isT){
     const stuChk=stus.map(u=>`<label style="display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer">
       <input type="checkbox" name="_ngm" value="${u.id}"> ${esc(u.display||u.username)}</label>`).join('');
@@ -5787,6 +5814,127 @@ async function _addMem(gid){
 async function _rmMem(gid,uid){
   await fetch(`/api/groups/${gid}/members/${uid}`,{method:'DELETE'});
   await _loadPD();renderGroups();
+}
+
+// ═══ O'quvchi login/parol boshqaruvi ═══
+function _openCreateStudentModal(){
+  const html=`<div style="display:flex;flex-direction:column;gap:12px">
+    <h3 style="margin:0;font-size:16px;color:#1d3557">➕ Yangi o'quvchi yaratish</h3>
+    <div class="pf-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <label style="font-size:12px;font-weight:600;color:#6c757d">To'liq ism:</label>
+      <input class="pf-inp" id="_new_stu_display" placeholder="Masalan: Jasur Abdullayev" style="width:100%">
+    </div>
+    <div class="pf-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <label style="font-size:12px;font-weight:600;color:#6c757d">Login (username):</label>
+      <input class="pf-inp" id="_new_stu_login" placeholder="Masalan: jasur123" style="width:100%">
+      <span style="font-size:11px;color:#aaa">Faqat lotin harflari va raqamlar</span>
+    </div>
+    <div class="pf-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <label style="font-size:12px;font-weight:600;color:#6c757d">Parol:</label>
+      <input class="pf-inp" id="_new_stu_pass" type="text" placeholder="Parol yarating" style="width:100%">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="pb pb-cancel" onclick="_closeModal()">Bekor</button>
+      <button class="pb pb-g" onclick="_doCreateStudent()">✅ Yaratish</button>
+    </div>
+  </div>`;
+  _showModal(html);
+}
+
+async function _doCreateStudent(){
+  const display=document.getElementById('_new_stu_display')?.value.trim();
+  const username=document.getElementById('_new_stu_login')?.value.trim().toLowerCase();
+  const password=document.getElementById('_new_stu_pass')?.value.trim();
+  if(!display){alert('Ism kiriting');return;}
+  if(!username||username.length<3){alert('Login kamida 3 ta belgi bo\'lsin');return;}
+  if(!/^[a-z0-9_]+$/.test(username)){alert('Login faqat lotin harflari va raqamlardan iborat bo\'lsin');return;}
+  if(!password||password.length<4){alert('Parol kamida 4 ta belgi bo\'lsin');return;}
+  try{
+    const res=await fetch('/api/users',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username,display,role:'student',password})});
+    const data=await res.json();
+    if(res.ok){
+      _closeModal();
+      await _loadPD();
+      renderGroups();
+      toast('✅ O\'quvchi yaratildi: '+display);
+    }else{
+      alert(data.error||'Xato yuz berdi');
+    }
+  }catch(e){alert('Server xatosi');}
+}
+
+function _editStudentCreds(uid, username, display){
+  const html=`<div style="display:flex;flex-direction:column;gap:12px">
+    <h3 style="margin:0;font-size:16px;color:#1d3557">✏️ "${display}" — login/parol tahrirlash</h3>
+    <div class="pf-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <label style="font-size:12px;font-weight:600;color:#6c757d">To'liq ism:</label>
+      <input class="pf-inp" id="_edit_stu_display" value="${display}" style="width:100%">
+    </div>
+    <div class="pf-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <label style="font-size:12px;font-weight:600;color:#6c757d">Login:</label>
+      <input class="pf-inp" id="_edit_stu_login" value="${username}" style="width:100%;background:#f1f3f5" readonly>
+      <span style="font-size:11px;color:#aaa">Login o'zgartirib bo'lmaydi</span>
+    </div>
+    <div class="pf-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <label style="font-size:12px;font-weight:600;color:#6c757d">Yangi parol (bo'sh qoldirsangiz o'zgarmaydi):</label>
+      <input class="pf-inp" id="_edit_stu_pass" type="text" placeholder="Yangi parol..." style="width:100%">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="pb pb-cancel" onclick="_closeModal()">Bekor</button>
+      <button class="pb pb-b" onclick="_doEditStudentCreds(${uid})">💾 Saqlash</button>
+    </div>
+  </div>`;
+  _showModal(html);
+}
+
+async function _doEditStudentCreds(uid){
+  const display=document.getElementById('_edit_stu_display')?.value.trim();
+  const password=document.getElementById('_edit_stu_pass')?.value.trim();
+  if(!display){alert('Ism kiriting');return;}
+  try{
+    // Update display name
+    await fetch(`/api/users/${uid}/update-display`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({display})});
+    // Update password if provided
+    if(password){
+      if(password.length<4){alert('Parol kamida 4 ta belgi');return;}
+      await fetch('/api/auth/set-password',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({user_id:uid,password})});
+    }
+    _closeModal();
+    await _loadPD();
+    renderGroups();
+    toast('✅ O\'quvchi ma\'lumotlari yangilandi');
+  }catch(e){alert('Server xatosi');}
+}
+
+async function _deleteStudent(uid, display){
+  if(!confirm(`"${display}" o'quvchisini o'chirasizmi?\n\nBarcha xabarlari, natijalari va davomatlari ham o'chiriladi!`)) return;
+  try{
+    const res=await fetch(`/api/users/${uid}`,{method:'DELETE'});
+    if(res.ok){
+      await _loadPD();
+      renderGroups();
+      toast('🗑️ O\'quvchi o\'chirildi');
+    }else{
+      const data=await res.json();
+      alert(data.error||'Xato');
+    }
+  }catch(e){alert('Server xatosi');}
+}
+
+// Modal helpers
+function _showModal(html){
+  const overlay=document.getElementById('modal-overlay');
+  if(overlay){
+    overlay.querySelector('.modal-box').innerHTML=html;
+    overlay.classList.add('open');
+  }
+}
+function _closeModal(){
+  const overlay=document.getElementById('modal-overlay');
+  if(overlay) overlay.classList.remove('open');
 }
 
 // ════════════════════════════════════════════════════════

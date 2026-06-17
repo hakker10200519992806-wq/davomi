@@ -1386,6 +1386,18 @@ def toggle_block(uid):
     u.blocked = not u.blocked; db.session.commit()
     return jsonify({'blocked': u.blocked})
 
+@app.route('/api/users/<int:uid>/update-display', methods=['POST'])
+def update_display(uid):
+    """O'qituvchi o'quvchi ismini o'zgartiradi"""
+    u = db.session.get(User, uid)
+    if not u: return jsonify({'error': 'not found'}), 404
+    d = request.json or {}
+    display = d.get('display', '').strip()
+    if display:
+        u.display = display
+        db.session.commit()
+    return jsonify({'ok': True, 'user': u.to_dict()})
+
 # ── Groups ──────────────────────────────────────────────────
 @app.route('/api/groups', methods=['GET'])
 def get_groups():
