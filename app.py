@@ -1,26 +1,79 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory, session, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 from datetime import datetime
-import json, os, base64, zlib, hashlib
+import json, os, base64, zlib, hashlib, logging
+
+# ─── Logging ──────────────────────────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+logger = logging.getLogger(__name__)
 
 BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR  = os.path.join(BASE_DIR, 'data')
 STATIC    = os.path.join(BASE_DIR, 'static')
+
+# ─── Ruxsat etilgan fayl turlari ──────────────────────────────────────────────
+ALLOWED_IMAGE_EXT = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'}
+ALLOWED_AUDIO_EXT = {'.mp3', '.wav', '.ogg', '.webm', '.m4a'}
+ALLOWED_VIDEO_EXT = {'.mp4', '.webm', '.mov', '.avi'}
 
 app = Flask(__name__,
             template_folder=os.path.join(BASE_DIR, 'templates'),
             static_folder=STATIC)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DATA_DIR}/langlearn.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'langlearn-secret-' + hashlib.sha256(os.urandom(16)).hexdigest()[:16])
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
 
-TEACHER_PASS_HASH = hashlib.sha256(b'200519992806').hexdigest()
+# O'qituvchi paroli — muhit o'zgaruvchisidan olinadi, standart qiymat faqat dev uchun
+TEACHER_PASSWORD = os.environ.get('TEACHER_PASSWORD', '200519992806')
 UROK_MAGIC   = b'UROKFILE'
 UROK_VERSION = 2
 
+# ─── Auth Middleware ──────────────────────────────────────────────────────────
+
+def _get_current_user():
+    """Session dan hozirgi foydalanuvchini olish"""
+    uid = session.get('user_id')
+    if uid:
+        return db.session.get(User, uid)
+    return None
+
+def login_required(f):
+    """Autentifikatsiya talab qiluvchi dekorator"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = _get_current_user()
+        if not user:
+            return jsonify({'error': 'Tizimga kiring'}), 401
+        request._current_user = user
+        return f(*args, **kwargs)
+    return decorated
+
+def teacher_required(f):
+    """Faqat o'qituvchi uchun dekorator"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = _get_current_user()
+        if not user:
+            return jsonify({'error': 'Tizimga kiring'}), 401
+        if user.role != 'teacher':
+            return jsonify({'error': 'Faqat o\'qituvchi uchun'}), 403
+        request._current_user = user
+        return f(*args, **kwargs)
+    return decorated
+
+def _validate_file_ext(filename, allowed_exts):
+    """Fayl kengaytmasini tekshirish"""
+    ext = os.path.splitext(filename or '')[1].lower()
+    return ext in allowed_exts
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+# DIQQAT: XOR — bu kriptografik himoya EMAS. Faqat .urok fayl formatini
+# oddiy matn ko'rinishidan yashirish uchun ishlatiladi. Haqiqiy shifrlash kerak
+# bo'lsa AES yoki Fernet ishlatilishi lozim.
 
 def _xor_bytes(data: bytes, key: bytes) -> bytes:
     return bytes(b ^ key[i % len(key)] for i, b in enumerate(data))
@@ -48,7 +101,7 @@ def decode_urok(b64_str: str) -> dict:
 # ─── DB & SocketIO ────────────────────────────────────────────────────────────
 
 db       = SQLAlchemy(app)
-socketio = SocketIO(app, cors_allowed_origins='*', async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins=os.environ.get('CORS_ORIGINS', None), async_mode='threading')
 
 # ─── Association table ────────────────────────────────────────────────────────
 
@@ -82,9 +135,18 @@ class User(db.Model):
                 'avatar': self.avatar or '👤',
                 'last_seen': self.last_seen.strftime('%d.%m.%Y %H:%M') if self.last_seen else None}
     def check_password(self, pwd):
-        return self.password_hash == hashlib.sha256(pwd.encode()).hexdigest()
+        if not self.password_hash:
+            return False
+        # Support both old SHA-256 and new werkzeug format
+        if self.password_hash.startswith(('pbkdf2:', 'scrypt:')):
+            return check_password_hash(self.password_hash, pwd)
+        # Legacy SHA-256 — verify and upgrade
+        if self.password_hash == hashlib.sha256(pwd.encode()).hexdigest():
+            self.set_password(pwd)  # Upgrade to secure hash
+            return True
+        return False
     def set_password(self, pwd):
-        self.password_hash = hashlib.sha256(pwd.encode()).hexdigest()
+        self.password_hash = generate_password_hash(pwd)
 
 
 class Group(db.Model):
@@ -374,6 +436,7 @@ class Notification(db.Model):
 class StudentProgress(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     block_id   = db.Column(db.Integer, db.ForeignKey('block.id'), nullable=False)
+    user_id    = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     answers    = db.Column(db.Text, default='{}')
     score      = db.Column(db.Float, default=0)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -381,6 +444,7 @@ class StudentProgress(db.Model):
 
 class StudentResult(db.Model):
     id           = db.Column(db.Integer, primary_key=True)
+    user_id      = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     student_name = db.Column(db.String(200), default="O'quvchi")
     lesson_title = db.Column(db.String(200), default='')
     total_score  = db.Column(db.Float, default=0)
@@ -392,13 +456,13 @@ class StudentResult(db.Model):
 
 def _seed_platform_users():
     t  = User(username='teacher1', display='Ustoz Alisher',    role='teacher')
-    t.set_password('200519992806')
+    t.set_password(os.environ.get('TEACHER_PASSWORD', '200519992806'))
     s1 = User(username='student1', display='Jasur Abdullayev', role='student')
-    s1.set_password('student1')
+    s1.set_password(os.environ.get('STUDENT1_PASSWORD', 'student_s3cur3_1'))
     s2 = User(username='student2', display='Malika Karimova',  role='student')
-    s2.set_password('student2')
+    s2.set_password(os.environ.get('STUDENT2_PASSWORD', 'student_s3cur3_2'))
     s3 = User(username='student3', display='Sardor Toshmatov', role='student')
-    s3.set_password('student3')
+    s3.set_password(os.environ.get('STUDENT3_PASSWORD', 'student_s3cur3_3'))
     # Default avatarlar
     t.avatar  = '👨‍🏫'
     s1.avatar = '👨‍🎓'
@@ -1126,7 +1190,7 @@ def set_role():
     role = d.get('role', 'student')
     if role == 'teacher':
         pwd = d.get('password', '')
-        if hashlib.sha256(pwd.encode()).hexdigest() != TEACHER_PASS_HASH:
+        if hashlib.sha256(pwd.encode()).hexdigest() != hashlib.sha256(TEACHER_PASSWORD.encode()).hexdigest():
             return jsonify({'ok': False, 'error': 'Parol noto\'g\'ri'}), 401
     session['role'] = role
     session.permanent = True
@@ -1306,7 +1370,7 @@ def decode_urok_teacher():
     """O'qituvchi uchun: parol tekshirib, keyin decode qiladi"""
     d = request.json or {}
     pwd = d.get('password', '')
-    if hashlib.sha256(pwd.encode()).hexdigest() != TEACHER_PASS_HASH:
+    if hashlib.sha256(pwd.encode()).hexdigest() != hashlib.sha256(TEACHER_PASSWORD.encode()).hexdigest():
         return jsonify({'ok': False, 'error': 'Parol noto\'g\'ri'}), 401
 
     b64 = d.get('data', '')
@@ -1395,12 +1459,16 @@ def delete_result(rid):
 # ─── Upload ───────────────────────────────────────────────────────────────────
 
 @app.route('/api/upload/audio', methods=['POST'])
+
+@app.route('/api/upload/audio', methods=['POST'])
 def upload_audio():
     f = request.files.get('file')
     if not f: return jsonify({'error': 'no file'}), 400
+    safe_name = os.path.basename(f.filename or 'audio')
+    if not _validate_file_ext(safe_name, ALLOWED_AUDIO_EXT):
+        return jsonify({'error': 'Faqat audio fayllar ruxsat etilgan'}), 400
     audio_dir = os.path.join(BASE_DIR, 'static', 'audio')
     os.makedirs(audio_dir, exist_ok=True)
-    safe_name = os.path.basename(f.filename or 'file')
     fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
     f.save(os.path.join(audio_dir, fname))
     return jsonify({'url': f'/static/audio/{fname}'})
@@ -1409,9 +1477,11 @@ def upload_audio():
 def upload_image():
     f = request.files.get('file')
     if not f: return jsonify({'error': 'no file'}), 400
+    safe_name = os.path.basename(f.filename or 'image')
+    if not _validate_file_ext(safe_name, ALLOWED_IMAGE_EXT):
+        return jsonify({'error': 'Faqat rasm fayllar ruxsat etilgan'}), 400
     img_dir = os.path.join(BASE_DIR, 'static', 'img')
     os.makedirs(img_dir, exist_ok=True)
-    safe_name = os.path.basename(f.filename or 'file')
     fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
     f.save(os.path.join(img_dir, fname))
     return jsonify({'url': f'/static/img/{fname}'})
@@ -1420,15 +1490,15 @@ def upload_image():
 def upload_video():
     f = request.files.get('file')
     if not f: return jsonify({'error': 'no file'}), 400
+    safe_name = os.path.basename(f.filename or 'video')
+    if not _validate_file_ext(safe_name, ALLOWED_VIDEO_EXT):
+        return jsonify({'error': 'Faqat video fayllar ruxsat etilgan'}), 400
     vid_dir = os.path.join(BASE_DIR, 'static', 'video')
     os.makedirs(vid_dir, exist_ok=True)
-    safe_name = os.path.basename(f.filename or 'file')
     fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
     f.save(os.path.join(vid_dir, fname))
     return jsonify({'url': f'/static/video/{fname}'})
 
-
-# ─── API: HTML + ZIP Export ────────────────────────────────────────────────────
 
 @app.route('/api/export/zip', methods=['POST'])
 def export_zip():
@@ -2826,11 +2896,20 @@ def change_password():
 
 @app.route('/api/auth/set-password', methods=['POST'])
 def set_password_admin():
-    """O'qituvchi boshqa foydalanuvchiga parol o'rnatadi"""
+    """O'qituvchi boshqa foydalanuvchiga parol o'rnatadi — faqat teacher"""
     d    = request.json or {}
+    # Tekshirish: so'rov qilgan odam teacher ekanligini
+    requester_id = d.get('requester_id') or session.get('user_id')
+    if requester_id:
+        requester = db.session.get(User, requester_id)
+        if not requester or requester.role != 'teacher':
+            return jsonify({'error': 'Faqat o\'qituvchi parol o\'zgartira oladi'}), 403
     u    = db.session.get(User, d.get('user_id'))
     if not u: return jsonify({'error': 'not found'}), 404
-    u.set_password(d.get('password',''))
+    new_pwd = d.get('password', '')
+    if not new_pwd or len(new_pwd) < 4:
+        return jsonify({'error': 'Parol kamida 4 ta belgi'}), 400
+    u.set_password(new_pwd)
     db.session.commit()
     return jsonify({'ok': True})
 
@@ -3010,8 +3089,8 @@ def _scheduled_msg_loop():
                     db.session.commit()
                     room = _get_msg_room(msg)
                     socketio.emit('new_message', msg.to_dict(), room=room)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f'Scheduled msg error: {e}')
 
 _sched_thread = threading.Thread(target=_scheduled_msg_loop, daemon=True)
 _sched_thread.start()

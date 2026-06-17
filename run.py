@@ -12,8 +12,7 @@ def check_deps():
         print("📦 Kerakli kutubxonalar o'rnatilmoqda...")
         subprocess.check_call([
             sys.executable, '-m', 'pip', 'install',
-            'flask', 'flask-sqlalchemy', 'flask-socketio', 'simple-websocket',
-            '--break-system-packages', '-q'
+            'flask', 'flask-sqlalchemy', 'flask-socketio', 'simple-websocket', '-q'
         ])
 
 def open_browser():
