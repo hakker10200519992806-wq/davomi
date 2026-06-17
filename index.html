@@ -4671,6 +4671,34 @@ body.dark .tg-emoji-btn:hover{background:#2d2b45}
 .tg-lb-close:hover{background:rgba(255,255,255,.3)}
 .tg-lb-download{padding:8px 20px;border-radius:8px;background:var(--blue);color:white;border:none;cursor:pointer;font-size:13px;font-weight:600}
 .tg-lb-download:hover{filter:brightness(1.1)}
+/* Voice message */
+.tg-voice-msg{display:flex;align-items:center;gap:10px;padding:6px 0}
+.tg-voice-play{width:32px;height:32px;border-radius:50%;background:rgba(69,123,157,.2);border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tg-voice-play:hover{background:rgba(69,123,157,.3)}
+.tg-voice-wave{flex:1;height:20px;background:linear-gradient(90deg,var(--blue) 30%,#dee2e6 30%);border-radius:4px;opacity:.5}
+.tg-voice-dur{font-size:11px;color:var(--gray);flex-shrink:0}
+/* File attachment */
+.tg-file-msg{display:flex;align-items:center;gap:8px;padding:6px 0}
+.tg-file-icon{font-size:20px;flex-shrink:0}
+.tg-file-name{font-size:13px;font-weight:600;color:var(--blue);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tg-file-name:hover{text-decoration:underline}
+.tg-msg-wrap.mine .tg-file-name{color:rgba(255,255,255,.9)}
+/* Reactions */
+.tg-reactions{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.tg-react-btn{padding:2px 8px;border-radius:12px;font-size:12px;border:1px solid var(--border);background:white;cursor:pointer;transition:all .1s}
+.tg-react-btn:hover{border-color:var(--blue);background:#f0f8ff}
+.tg-react-btn.my{background:#e8f4fd;border-color:var(--blue)}
+body.dark .tg-react-btn{background:#2d2b45;border-color:#3d3b5a;color:#e0deef}
+body.dark .tg-react-btn.my{background:#1a3060;border-color:#457b9d}
+/* Read status */
+.tg-read-status{font-size:11px;color:rgba(255,255,255,.6);margin-left:2px}
+.tg-read-status.unread{opacity:.4}
+/* Pin badge */
+.tg-pin-badge{font-size:10px;color:var(--blue);font-weight:700;margin-bottom:4px}
+.tg-msg-wrap.pinned{border-left:3px solid #f59e0b;padding-left:4px;border-radius:0 12px 12px 0}
+/* @Mention */
+.tg-mention{color:var(--blue);font-weight:700;cursor:pointer}
+.tg-msg-wrap.mine .tg-mention{color:#a8dadc}
 /* User profile popup */
 .tg-profile-popup{position:fixed;z-index:500;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.2);padding:20px;width:260px;display:none}
 body.dark .tg-profile-popup{background:#1c1a2e;border:1px solid #2d2b45}
@@ -4976,6 +5004,11 @@ async function renderChat(){
         <button class="tg-topbar-toggle" onclick="toggleChatSidebar()" title="Menyu">☰</button>
         <div class="tg-topbar-name">${esc(chatName)}</div>
         <div class="tg-topbar-info">${_chatScope==='global'?'Umumiy chat':_chatScope==='group'?'Guruh chat':'Shaxsiy'}</div>
+        <button class="tg-btn-icon" onclick="toggleChatSearch()" title="Qidirish" style="margin-left:auto">🔍</button>
+        <button class="tg-btn-icon" onclick="showPinnedMessages()" title="Pinned xabarlar">📌</button>
+      </div>
+      <div class="tg-search-bar" id="_tg_search_bar" style="display:none;padding:8px 16px;background:#f8f9fa;border-bottom:1px solid var(--border);flex-shrink:0">
+        <input class="tg-inp" id="_tg_search_inp" placeholder="Xabar qidirish..." style="padding:8px 14px;min-height:36px" oninput="searchInChat(this.value)">
       </div>
       <div class="tg-msgs" id="_tg_msgs"></div>
       <div class="tg-typing" id="_tg_typing"></div>
@@ -4995,11 +5028,15 @@ async function renderChat(){
       <div class="tg-input-bar">
         ${!_me?'<span style="color:#e63946;font-size:13px;padding:8px">Iltimos tizimga kiring</span>':`
         <button class="tg-btn-icon" onclick="toggleEmojiPicker()" title="Emoji">😊</button>
+        <button class="tg-btn-icon" onclick="triggerChatFileUpload()" title="Fayl (10MB)">📎</button>
         <button class="tg-btn-icon" onclick="triggerChatImageUpload()" title="Rasm">🖼️</button>
         <input type="file" id="_tg_img_input" accept="image/*" style="display:none" onchange="uploadChatImage(this)">
-        <textarea class="tg-inp" id="_tg_inp" placeholder="Xabar yozing..." rows="1"
-          oninput="autoResizeInp(this)"
+        <input type="file" id="_tg_file_input" style="display:none" onchange="uploadChatFile(this)">
+        <textarea class="tg-inp" id="_tg_inp" placeholder="Xabar yozing... (@ism bilan mention)" rows="1"
+          oninput="autoResizeInp(this);checkMention(this)"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
+        <button class="tg-btn-icon" id="_tg_voice_btn" onmousedown="startVoiceRec()" onmouseup="stopVoiceRec()" ontouchstart="startVoiceRec()" ontouchend="stopVoiceRec()" title="Ovozli xabar (bosib turing)">🎤</button>
+        <button class="tg-btn-icon" onclick="openScheduleModal()" title="Keyinroq yuborish">⏰</button>
         <button class="tg-btn-send" onclick="sendMsg()" title="Yuborish">➤</button>`}
       </div>
     </div>
@@ -5066,52 +5103,98 @@ function _renderMsg(container, msg){
   const wrap=document.createElement('div');
   wrap.className='tg-msg-wrap '+(isMe?'mine':'other');
   wrap.id='msg-'+msg.id;
+  if(msg.pinned) wrap.classList.add('pinned');
   
   let html='';
   
   if(!isMe){
-    // Other person's message: avatar on left + bubble
     html+=`<div class="tg-msg-row">`;
     html+=`<div class="tg-msg-avatar" onclick="showProfilePopup(${msg.sender_id},event)" title="${esc(msg.sender_name)}">${esc(msg.sender_avatar||'👤')}</div>`;
     html+=`<div class="tg-msg-content">`;
     html+=`<div class="tg-msg-sender-name" onclick="showProfilePopup(${msg.sender_id},event)">${esc(msg.sender_name)}</div>`;
     html+=`<div class="tg-msg-bubble">`;
   } else {
-    // My message: just bubble aligned right
     html+=`<div class="tg-msg-bubble">`;
+  }
+  
+  // Pin badge
+  if(msg.pinned) html+=`<div class="tg-pin-badge">📌 Pinned</div>`;
+  
+  // Reply block
+  if(msg.reply_to){
+    const r=msg.reply_to;
+    const rContent=r.voice?'🎤 Ovozli xabar':r.file?'📎 Fayl':(r.content||'');
+    html+=`<div class="tg-reply-block" onclick="scrollToMsg(${r.id})">
+      <div class="tg-reply-rname">${esc(r.sender_name)}</div>
+      <div class="tg-reply-rtext">${esc(rContent)}</div></div>`;
+  }
+  
+  // Voice message
+  if(msg.voice_url){
+    const dur=msg.voice_duration||0;
+    const mm=Math.floor(dur/60),ss=String(dur%60).padStart(2,'0');
+    html+=`<div class="tg-voice-msg">
+      <button class="tg-voice-play" onclick="playVoice(this,'${esc(msg.voice_url)}')">▶</button>
+      <div class="tg-voice-wave"></div>
+      <span class="tg-voice-dur">${mm}:${ss}</span></div>`;
+  }
+  
+  // File attachment
+  if(msg.file_url){
+    html+=`<div class="tg-file-msg">
+      <span class="tg-file-icon">📎</span>
+      <a href="${esc(msg.file_url)}" download="${esc(msg.file_name)}" class="tg-file-name">${esc(msg.file_name||'Fayl')}</a></div>`;
   }
   
   // Image
   if(msg.image_url){
     html+=`<img class="tg-msg-img" src="${esc(msg.image_url)}" onclick="openLightbox('${esc(msg.image_url)}');event.stopPropagation()">`;
   }
-  // Content
+  
+  // Content (with @mention highlight)
   if(msg.content){
-    html+=`<div class="tg-msg-text">${esc(msg.content).replace(/\n/g,'<br>')}</div>`;
+    let txt=esc(msg.content).replace(/\n/g,'<br>');
+    txt=txt.replace(/@(\w+)/g,'<span class="tg-mention">@$1</span>');
+    html+=`<div class="tg-msg-text">${txt}</div>`;
   }
-  // Meta
+  
+  // Meta: time + edited + read status
   html+=`<div class="tg-msg-meta">`;
   if(msg.edited) html+=`<span class="tg-msg-edited">tahrirlangan</span>`;
   html+=`<span class="tg-msg-time">${msg.created_at}</span>`;
+  if(isMe){
+    const readCount=(msg.read_by||[]).length;
+    html+=readCount>0?`<span class="tg-read-status">✓✓</span>`:`<span class="tg-read-status unread">✓</span>`;
+  }
   html+=`</div>`;
+  
+  // Reactions
+  const reactions=msg.reactions||{};
+  if(Object.keys(reactions).length){
+    html+=`<div class="tg-reactions">`;
+    for(const[emoji,users] of Object.entries(reactions)){
+      const myReact=users.includes(_me?.id);
+      html+=`<button class="tg-react-btn ${myReact?'my':''}" onclick="reactToMsg(${msg.id},'${emoji}')">${emoji} ${users.length}</button>`;
+    }
+    html+=`</div>`;
+  }
+  
   html+=`</div>`; // end bubble
   
-  if(!isMe){
-    html+=`</div></div>`; // end tg-msg-content + tg-msg-row
-  }
+  if(!isMe) html+=`</div></div>`; // end tg-msg-content + tg-msg-row
   
-  // Actions (only for own messages)
+  // Context actions
+  html+=`<div class="tg-msg-actions">`;
+  html+=`<button class="tg-msg-act" onclick="replyToMsg(${msg.id},'${esc(msg.sender_name).replace(/'/g,"\\'")}','${esc((msg.content||msg.voice_url?'🎤':'📎').substring(0,30)).replace(/'/g,"\\'")}')" title="Javob">↩️</button>`;
+  html+=`<button class="tg-msg-act" onclick="reactToMsg(${msg.id},'❤️')" title="❤️">❤️</button>`;
+  html+=`<button class="tg-msg-act" onclick="reactToMsg(${msg.id},'😂')" title="😂">😂</button>`;
+  html+=`<button class="tg-msg-act" onclick="copyMsg(${msg.id})" title="Nusxalash">📋</button>`;
+  if(isMe||_me?.role==='teacher') html+=`<button class="tg-msg-act" onclick="pinMsg(${msg.id})" title="Pin">📌</button>`;
   if(isMe){
-    html+=`<div class="tg-msg-actions">
-      <button class="tg-msg-act" onclick="replyToMsg(${msg.id},'${esc(msg.sender_name)}','${esc((msg.content||'🖼️ Rasm').substring(0,40))}')" title="Javob">↩️</button>
-      <button class="tg-msg-act" onclick="editMsg(${msg.id})" title="Tahrirlash">✏️</button>
-      <button class="tg-msg-act" onclick="deleteMsg(${msg.id})" title="O'chirish">🗑️</button>
-    </div>`;
-  } else {
-    html+=`<div class="tg-msg-actions">
-      <button class="tg-msg-act" onclick="replyToMsg(${msg.id},'${esc(msg.sender_name)}','${esc((msg.content||'🖼️ Rasm').substring(0,40))}')" title="Javob">↩️</button>
-    </div>`;
+    html+=`<button class="tg-msg-act" onclick="editMsg(${msg.id})" title="Tahrirlash">✏️</button>`;
+    html+=`<button class="tg-msg-act" onclick="deleteMsg(${msg.id})" title="O'chirish">🗑️</button>`;
   }
+  html+=`</div>`;
   
   wrap.innerHTML=html;
   container.appendChild(wrap);
@@ -5131,12 +5214,18 @@ function sendMsg(){
   const content=inp.value.trim();
   if(!content) return;
   inp.value='';inp.style.height='42px';
-  const data={sender_id:_me.id,scope:_chatScope,content};
+  // Extract @mentions
+  const mentionMatches=content.match(/@(\w+)/g)||[];
+  const mentions=mentionMatches.map(m=>{
+    const name=m.slice(1).toLowerCase();
+    const u=_users.find(x=>(x.username||'').toLowerCase()===name||(x.display||'').toLowerCase().includes(name));
+    return u?u.id:null;
+  }).filter(Boolean);
+  const data={sender_id:_me.id,scope:_chatScope,content,mentions};
   if(_chatScope==='private') data.receiver_id=_chatTarget;
-  if(_chatScope==='group')   data.group_id=_chatTarget;
-  if(_replyTo) {data.reply_to=_replyTo; cancelReply();}
+  if(_chatScope==='group') data.group_id=_chatTarget;
+  if(_replyTo){data.reply_to_id=_replyTo.id;cancelReply();}
   if(_sock) _sock.emit('send_message',data);
-  // Hide emoji picker
   const ep=document.getElementById('_tg_emoji_picker');
   if(ep) ep.classList.remove('show');
 }
@@ -5308,10 +5397,9 @@ function scrollChatBottom(){
 // Date dividers
 let _lastMsgDate='';
 function _maybeAddDateDivider(container, dateStr){
-  // dateStr format: "HH:MM DD.MM.YYYY"
   const parts=dateStr.split(' ');
   if(parts.length<2) return;
-  const day=parts[1]; // DD.MM.YYYY
+  const day=parts[1];
   if(day!==_lastMsgDate){
     _lastMsgDate=day;
     const div=document.createElement('div');
@@ -5320,6 +5408,179 @@ function _maybeAddDateDivider(container, dateStr){
     container.appendChild(div);
   }
 }
+
+// ═══ VOICE RECORDING ═══
+let _mediaRec=null,_voiceChunks=[],_voiceStart=0;
+function startVoiceRec(){
+  if(!navigator.mediaDevices){alert('Mikrofon qo\'llab-quvvatlanmaydi');return;}
+  const btn=document.getElementById('_tg_voice_btn');
+  if(btn){btn.style.background='#e63946';btn.style.color='white';}
+  _voiceStart=Date.now();
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+    _mediaRec=new MediaRecorder(stream);
+    _voiceChunks=[];
+    _mediaRec.ondataavailable=e=>{if(e.data.size>0)_voiceChunks.push(e.data);};
+    _mediaRec.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(_voiceChunks,{type:'audio/webm'});
+      const duration=Math.round((Date.now()-_voiceStart)/1000);
+      if(duration<1){toast('⚠️ Juda qisqa');return;}
+      const fd=new FormData();fd.append('file',blob,'voice.webm');
+      const res=await fetch('/api/chat/upload-voice',{method:'POST',body:fd});
+      const data=await res.json();
+      if(data.url){
+        const msgData={sender_id:_me.id,scope:_chatScope,content:'',voice_url:data.url,voice_duration:duration};
+        if(_chatScope==='private') msgData.receiver_id=_chatTarget;
+        if(_chatScope==='group') msgData.group_id=_chatTarget;
+        if(_replyTo){msgData.reply_to_id=_replyTo.id;cancelReply();}
+        if(_sock) _sock.emit('send_message',msgData);
+      }
+    };
+    _mediaRec.start();
+  }).catch(()=>alert('Mikrofonga ruxsat berilmadi'));
+}
+function stopVoiceRec(){
+  const btn=document.getElementById('_tg_voice_btn');
+  if(btn){btn.style.background='';btn.style.color='';}
+  if(_mediaRec&&_mediaRec.state==='recording') _mediaRec.stop();
+}
+function playVoice(btn,url){
+  const audio=new Audio(url);
+  btn.textContent='⏸';
+  audio.play();
+  audio.onended=()=>{btn.textContent='▶';};
+}
+
+// ═══ FILE UPLOAD ═══
+function triggerChatFileUpload(){document.getElementById('_tg_file_input')?.click();}
+async function uploadChatFile(input){
+  const file=input.files[0];if(!file)return;
+  if(file.size>10*1024*1024){alert('Fayl 10MB dan katta!');input.value='';return;}
+  const fd=new FormData();fd.append('file',file);
+  const res=await fetch('/api/chat/upload-file',{method:'POST',body:fd});
+  const data=await res.json();
+  if(data.url){
+    const msgData={sender_id:_me.id,scope:_chatScope,content:'',file_url:data.url,file_name:data.name};
+    if(_chatScope==='private') msgData.receiver_id=_chatTarget;
+    if(_chatScope==='group') msgData.group_id=_chatTarget;
+    if(_sock) _sock.emit('send_message',msgData);
+  }
+  input.value='';
+}
+
+// ═══ REACTIONS ═══
+async function reactToMsg(mid,emoji){
+  await fetch(`/api/chat/message/${mid}/react`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:_me.id,emoji})});
+}
+
+// ═══ PIN ═══
+async function pinMsg(mid){
+  await fetch(`/api/chat/message/${mid}/pin`,{method:'POST'});
+  toast('📌 Xabar pin qilindi');
+}
+async function showPinnedMessages(){
+  let url=`/api/chat/pinned?scope=${_chatScope}`;
+  if(_chatScope==='group') url+=`&group_id=${_chatTarget}`;
+  const msgs=await fetch(url).then(r=>r.json());
+  if(!msgs.length){toast('📌 Pin xabarlar yo\'q');return;}
+  alert('📌 Pinned xabarlar:\n\n'+msgs.map(m=>`${m.sender_name}: ${m.content||'🎤/📎'}`).join('\n'));
+}
+
+// ═══ COPY ═══
+function copyMsg(mid){
+  const el=document.getElementById('msg-'+mid);
+  if(!el)return;
+  const text=el.querySelector('.tg-msg-text')?.innerText||'';
+  navigator.clipboard.writeText(text).then(()=>toast('📋 Nusxalandi')).catch(()=>{});
+}
+
+// ═══ SCROLL TO MESSAGE ═══
+function scrollToMsg(mid){
+  const el=document.getElementById('msg-'+mid);
+  if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.background='rgba(69,123,157,.1)';setTimeout(()=>{el.style.background='';},2000);}
+}
+
+// ═══ SEARCH IN CHAT ═══
+function toggleChatSearch(){
+  const bar=document.getElementById('_tg_search_bar');
+  if(!bar)return;
+  bar.style.display=bar.style.display==='none'?'block':'none';
+  if(bar.style.display!=='none') document.getElementById('_tg_search_inp')?.focus();
+}
+function searchInChat(q){
+  if(!q||q.length<2)return;
+  const msgs=document.querySelectorAll('.tg-msg-wrap');
+  msgs.forEach(m=>{
+    const text=m.querySelector('.tg-msg-text')?.innerText||'';
+    if(text.toLowerCase().includes(q.toLowerCase())){
+      m.style.display='';m.style.border='2px solid #0ea5e9';m.style.borderRadius='12px';
+    }else{
+      m.style.display='none';
+    }
+  });
+  if(!q){msgs.forEach(m=>{m.style.display='';m.style.border='';});}
+}
+
+// ═══ @MENTION AUTOCOMPLETE ═══
+function checkMention(inp){
+  const val=inp.value;
+  const atPos=val.lastIndexOf('@');
+  if(atPos===-1)return;
+  const afterAt=val.slice(atPos+1);
+  if(afterAt.includes(' ')||afterAt.length<1)return;
+  // Simple: no popup, just let user type
+}
+
+// ═══ SCHEDULED MESSAGES ═══
+function openScheduleModal(){
+  const inp=document.getElementById('_tg_inp');
+  const content=inp?.value.trim();
+  if(!content){toast('⚠️ Avval xabar yozing');return;}
+  const now=new Date();
+  const minDT=now.toISOString().slice(0,16);
+  const html=`<div style="display:flex;flex-direction:column;gap:14px">
+    <h3 style="margin:0;font-size:16px;color:#1d3557">⏰ Xabarni keyinroq yuborish</h3>
+    <p style="font-size:13px;color:#6c757d;margin:0">Xabar: "${esc(content.substring(0,50))}${content.length>50?'...':''}"</p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <label style="font-size:12px;font-weight:600;color:#6c757d">Qachon yuborilsin:</label>
+      <input type="datetime-local" id="_sched_dt" min="${minDT}" class="pf-inp" style="max-width:250px">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="pb pb-cancel" onclick="_closeModal()">Bekor</button>
+      <button class="pb pb-b" onclick="_doScheduleMsg()">⏰ Rejalashtirish</button>
+    </div>
+  </div>`;
+  _showModal(html);
+}
+async function _doScheduleMsg(){
+  const dt=document.getElementById('_sched_dt')?.value;
+  if(!dt){alert('Vaqt tanlang');return;}
+  const inp=document.getElementById('_tg_inp');
+  const content=inp?.value.trim();
+  const data={sender_id:_me.id,scope:_chatScope,content,scheduled_at:new Date(dt).toISOString()};
+  if(_chatScope==='private') data.receiver_id=_chatTarget;
+  if(_chatScope==='group') data.group_id=_chatTarget;
+  const res=await fetch('/api/chat/schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  if(res.ok){
+    _closeModal();
+    if(inp) inp.value='';
+    toast('⏰ Xabar rejalashtirildi!');
+  }else{
+    const err=await res.json();alert(err.error||'Xato');
+  }
+}
+
+// ═══ MARK READ ═══
+function _markVisibleAsRead(){
+  if(!_me)return;
+  const msgs=document.querySelectorAll('.tg-msg-wrap.other');
+  const ids=[];
+  msgs.forEach(m=>{const mid=parseInt(m.id.replace('msg-',''));if(mid)ids.push(mid);});
+  if(ids.length) fetch('/api/chat/mark-read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:_me.id,message_ids:ids})});
+}
+// Mark as read when loading history
+const _origLoadHist=_loadHistory;
+// Will be called after history loads
 
 // Socket message_edited and message_deleted handlers
 if(typeof _sockExtraHandlers==='undefined'){

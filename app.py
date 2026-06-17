@@ -14,6 +14,7 @@ app = Flask(__name__,
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DATA_DIR}/langlearn.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'langlearn-secret-' + hashlib.sha256(os.urandom(16)).hexdigest()[:16])
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
 
 TEACHER_PASS_HASH = hashlib.sha256(b'200519992806').hexdigest()
 UROK_MAGIC   = b'UROKFILE'
@@ -109,20 +110,53 @@ class ChatMessage(db.Model):
     receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'),  nullable=True)
     group_id    = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)
     scope       = db.Column(db.String(20), default='global')   # global | private | group
-    content     = db.Column(db.Text, nullable=False)
+    content     = db.Column(db.Text, default='')
     image_url   = db.Column(db.Text, default='')
+    file_url    = db.Column(db.Text, default='')
+    file_name   = db.Column(db.String(200), default='')
+    voice_url   = db.Column(db.Text, default='')
+    voice_duration = db.Column(db.Integer, default=0)  # seconds
+    reply_to_id = db.Column(db.Integer, db.ForeignKey('chat_message.id'), nullable=True)
+    pinned      = db.Column(db.Boolean, default=False)
+    read_by     = db.Column(db.Text, default='[]')  # JSON array of user IDs
+    reactions   = db.Column(db.Text, default='{}')  # JSON: {"❤️": [1,2], "😂": [3]}
+    mentions    = db.Column(db.Text, default='[]')  # JSON array of user IDs
+    scheduled_at = db.Column(db.DateTime, nullable=True)
+    is_scheduled = db.Column(db.Boolean, default=False)
     edited      = db.Column(db.Boolean, default=False)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    reply_to    = db.relationship('ChatMessage', remote_side=[id], uselist=False)
+
     def to_dict(self):
-        return {'id': self.id, 'sender_id': self.sender_id,
-                'sender_name': self.sender.display or self.sender.username,
-                'sender_role': self.sender.role,
-                'sender_avatar': self.sender.avatar or '👤',
-                'receiver_id': self.receiver_id, 'group_id': self.group_id,
-                'scope': self.scope, 'content': self.content,
-                'image_url': self.image_url or '',
-                'edited': self.edited or False,
-                'created_at': self.created_at.strftime('%H:%M %d.%m.%Y')}
+        reply_data = None
+        if self.reply_to_id and self.reply_to:
+            reply_data = {
+                'id': self.reply_to.id,
+                'sender_name': self.reply_to.sender.display or self.reply_to.sender.username,
+                'content': (self.reply_to.content or '')[:50],
+                'voice': bool(self.reply_to.voice_url),
+                'file': bool(self.reply_to.file_url),
+            }
+        return {
+            'id': self.id, 'sender_id': self.sender_id,
+            'sender_name': self.sender.display or self.sender.username,
+            'sender_role': self.sender.role,
+            'sender_avatar': self.sender.avatar or '👤',
+            'receiver_id': self.receiver_id, 'group_id': self.group_id,
+            'scope': self.scope, 'content': self.content,
+            'image_url': self.image_url or '',
+            'file_url': self.file_url or '',
+            'file_name': self.file_name or '',
+            'voice_url': self.voice_url or '',
+            'voice_duration': self.voice_duration or 0,
+            'reply_to': reply_data,
+            'pinned': self.pinned or False,
+            'read_by': json.loads(self.read_by or '[]'),
+            'reactions': json.loads(self.reactions or '{}'),
+            'mentions': json.loads(self.mentions or '[]'),
+            'edited': self.edited or False,
+            'created_at': self.created_at.strftime('%H:%M %d.%m.%Y'),
+        }
 
 
 class Announcement(db.Model):
@@ -1563,6 +1597,147 @@ def _get_msg_room(msg):
         return f'priv_{min(a,b)}_{max(a,b)}'
     return 'global'
 
+# ── Chat: Pin ───────────────────────────────────────────────
+@app.route('/api/chat/message/<int:mid>/pin', methods=['POST'])
+def pin_message(mid):
+    msg = db.session.get(ChatMessage, mid)
+    if not msg: return jsonify({'error': 'not found'}), 404
+    msg.pinned = True
+    db.session.commit()
+    socketio.emit('message_pinned', msg.to_dict(), room=_get_msg_room(msg))
+    return jsonify(msg.to_dict())
+
+@app.route('/api/chat/message/<int:mid>/unpin', methods=['POST'])
+def unpin_message(mid):
+    msg = db.session.get(ChatMessage, mid)
+    if not msg: return jsonify({'error': 'not found'}), 404
+    msg.pinned = False
+    db.session.commit()
+    socketio.emit('message_unpinned', {'id': mid}, room=_get_msg_room(msg))
+    return jsonify({'ok': True})
+
+# ── Chat: Reactions ─────────────────────────────────────────
+@app.route('/api/chat/message/<int:mid>/react', methods=['POST'])
+def react_message(mid):
+    d = request.json or {}
+    emoji = d.get('emoji', '❤️')
+    user_id = d.get('user_id')
+    if not user_id: return jsonify({'error': 'user_id kerak'}), 400
+    msg = db.session.get(ChatMessage, mid)
+    if not msg: return jsonify({'error': 'not found'}), 404
+    reactions = json.loads(msg.reactions or '{}')
+    if emoji not in reactions:
+        reactions[emoji] = []
+    if user_id in reactions[emoji]:
+        reactions[emoji].remove(user_id)
+        if not reactions[emoji]:
+            del reactions[emoji]
+    else:
+        reactions[emoji].append(user_id)
+    msg.reactions = json.dumps(reactions)
+    db.session.commit()
+    socketio.emit('message_reacted', {'id': mid, 'reactions': reactions}, room=_get_msg_room(msg))
+    return jsonify({'reactions': reactions})
+
+# ── Chat: Read receipts ─────────────────────────────────────
+@app.route('/api/chat/mark-read', methods=['POST'])
+def mark_read():
+    d = request.json or {}
+    user_id = d.get('user_id')
+    message_ids = d.get('message_ids', [])
+    if not user_id or not message_ids:
+        return jsonify({'ok': True})
+    for mid in message_ids:
+        msg = db.session.get(ChatMessage, mid)
+        if not msg: continue
+        read_list = json.loads(msg.read_by or '[]')
+        if user_id not in read_list:
+            read_list.append(user_id)
+            msg.read_by = json.dumps(read_list)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+# ── Chat: Voice upload ──────────────────────────────────────
+@app.route('/api/chat/upload-voice', methods=['POST'])
+def chat_upload_voice():
+    f = request.files.get('file')
+    if not f: return jsonify({'error': 'no file'}), 400
+    safe_name = os.path.basename(f.filename or 'voice.webm')
+    voice_dir = os.path.join(STATIC, 'audio', 'chat')
+    os.makedirs(voice_dir, exist_ok=True)
+    fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
+    f.save(os.path.join(voice_dir, fname))
+    return jsonify({'url': f'/static/audio/chat/{fname}'})
+
+# ── Chat: File upload (max 10MB) ────────────────────────────
+@app.route('/api/chat/upload-file', methods=['POST'])
+def chat_upload_file():
+    f = request.files.get('file')
+    if not f: return jsonify({'error': 'no file'}), 400
+    safe_name = os.path.basename(f.filename or 'file')
+    file_dir = os.path.join(STATIC, 'files', 'chat')
+    os.makedirs(file_dir, exist_ok=True)
+    fname = f'{datetime.utcnow().timestamp()}_{safe_name}'
+    f.save(os.path.join(file_dir, fname))
+    return jsonify({'url': f'/static/files/chat/{fname}', 'name': safe_name})
+
+# ── Chat: Scheduled messages ────────────────────────────────
+@app.route('/api/chat/schedule', methods=['POST'])
+def schedule_message():
+    d = request.json or {}
+    sender = db.session.get(User, d.get('sender_id'))
+    if not sender: return jsonify({'error': 'user not found'}), 404
+    scheduled_at = d.get('scheduled_at')
+    if not scheduled_at: return jsonify({'error': 'scheduled_at kerak'}), 400
+    try:
+        sched_time = datetime.fromisoformat(scheduled_at)
+    except:
+        return jsonify({'error': 'Noto\'g\'ri sana formati'}), 400
+    msg = ChatMessage(
+        sender_id=d['sender_id'], scope=d.get('scope', 'global'),
+        receiver_id=d.get('receiver_id'), group_id=d.get('group_id'),
+        content=d.get('content', ''), image_url=d.get('image_url', ''),
+        file_url=d.get('file_url', ''), file_name=d.get('file_name', ''),
+        scheduled_at=sched_time, is_scheduled=True,
+        mentions=json.dumps(d.get('mentions', []))
+    )
+    db.session.add(msg); db.session.commit()
+    return jsonify({'ok': True, 'id': msg.id, 'scheduled_at': sched_time.isoformat()})
+
+@app.route('/api/chat/scheduled', methods=['GET'])
+def get_scheduled():
+    uid = request.args.get('user_id', type=int)
+    if not uid: return jsonify([])
+    msgs = db.session.execute(
+        db.select(ChatMessage).where(
+            ChatMessage.sender_id == uid, ChatMessage.is_scheduled == True
+        ).order_by(ChatMessage.scheduled_at)
+    ).scalars().all()
+    return jsonify([{**m.to_dict(), 'scheduled_at': m.scheduled_at.isoformat() if m.scheduled_at else None} for m in msgs])
+
+@app.route('/api/chat/scheduled/<int:mid>', methods=['DELETE'])
+def cancel_scheduled(mid):
+    d = request.json or {}
+    msg = db.session.get(ChatMessage, mid)
+    if not msg: return jsonify({'error': 'not found'}), 404
+    if msg.sender_id != d.get('user_id'):
+        return jsonify({'error': 'Ruxsat yo\'q'}), 403
+    db.session.delete(msg); db.session.commit()
+    return jsonify({'ok': True})
+
+# ── Chat: Pinned messages list ──────────────────────────────
+@app.route('/api/chat/pinned')
+def get_pinned():
+    scope = request.args.get('scope', 'global')
+    gid = request.args.get('group_id', type=int)
+    q = db.select(ChatMessage).where(ChatMessage.pinned == True)
+    if scope == 'global':
+        q = q.where(ChatMessage.scope == 'global')
+    elif scope == 'group' and gid:
+        q = q.where(ChatMessage.scope == 'group', ChatMessage.group_id == gid)
+    msgs = db.session.execute(q.order_by(ChatMessage.created_at.desc()).limit(20)).scalars().all()
+    return jsonify([m.to_dict() for m in msgs])
+
 # ── Announcements ───────────────────────────────────────────
 @app.route('/api/announcements', methods=['GET'])
 def get_announcements():
@@ -1793,12 +1968,15 @@ def on_message(data):
         scope       = scope,
         content     = data.get('content', ''),
         image_url   = data.get('image_url', ''),
+        file_url    = data.get('file_url', ''),
+        file_name   = data.get('file_name', ''),
+        voice_url   = data.get('voice_url', ''),
+        voice_duration = data.get('voice_duration', 0),
+        reply_to_id = data.get('reply_to_id'),
+        mentions    = json.dumps(data.get('mentions', [])),
     )
     db.session.add(msg); db.session.commit()
     payload = msg.to_dict()
-    # Reply info (stored client-side only for now)
-    if data.get('reply_to'):
-        payload['reply_to'] = data['reply_to']
     if scope == 'global':
         emit('new_message', payload, room='global')
     elif scope == 'group':
@@ -2506,6 +2684,34 @@ def log_action():
     _log(d.get('user_id'), d.get('username',''), d.get('action','view'),
          d.get('detail',''), request)
     return jsonify({'ok': True})
+
+# ── Scheduled messages background thread ────────────────────
+import threading, time as _time
+
+def _scheduled_msg_loop():
+    """Har 30 soniyada scheduled xabarlarni tekshiradi va yuboradi"""
+    while True:
+        _time.sleep(30)
+        try:
+            with app.app_context():
+                now = datetime.utcnow()
+                msgs = db.session.execute(
+                    db.select(ChatMessage).where(
+                        ChatMessage.is_scheduled == True,
+                        ChatMessage.scheduled_at <= now
+                    )
+                ).scalars().all()
+                for msg in msgs:
+                    msg.is_scheduled = False
+                    msg.created_at = now
+                    db.session.commit()
+                    room = _get_msg_room(msg)
+                    socketio.emit('new_message', msg.to_dict(), room=room)
+        except Exception:
+            pass
+
+_sched_thread = threading.Thread(target=_scheduled_msg_loop, daemon=True)
+_sched_thread.start()
 
 # ─── Entry point ─────────────────────────────────────────────
 if __name__ == '__main__':
