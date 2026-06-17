@@ -1398,6 +1398,27 @@ def update_display(uid):
         db.session.commit()
     return jsonify({'ok': True, 'user': u.to_dict()})
 
+@app.route('/api/users/<int:uid>/update-profile', methods=['POST'])
+def update_profile(uid):
+    """O'qituvchi o'quvchining ism, login (username) ni o'zgartiradi"""
+    u = db.session.get(User, uid)
+    if not u: return jsonify({'error': 'not found'}), 404
+    d = request.json or {}
+    display = d.get('display', '').strip()
+    new_username = d.get('username', '').strip().lower()
+    if display:
+        u.display = display
+    if new_username and new_username != u.username:
+        # Check if username already taken
+        existing = db.session.execute(
+            db.select(User).where(User.username == new_username, User.id != uid)
+        ).scalar_one_or_none()
+        if existing:
+            return jsonify({'error': f'"{new_username}" login allaqachon band'}), 400
+        u.username = new_username
+    db.session.commit()
+    return jsonify({'ok': True, 'user': u.to_dict()})
+
 # ── Groups ──────────────────────────────────────────────────
 @app.route('/api/groups', methods=['GET'])
 def get_groups():

@@ -5731,8 +5731,8 @@ async function renderGroups(){
               <td><code style="background:#f1f3f5;padding:2px 8px;border-radius:4px;font-size:13px">${esc(u.username)}</code></td>
               <td><span style="color:#aaa;font-size:12px">••••••</span></td>
               <td style="white-space:nowrap">
-                <button class="pb pb-b" style="padding:4px 10px;font-size:12px" onclick="_editStudentCreds(${u.id},'${esc(u.username)}','${esc(u.display||u.username)}')" title="Tahrirlash">✏️ Tahrirlash</button>
-                <button class="pb pb-r" style="padding:4px 10px;font-size:12px" onclick="_deleteStudent(${u.id},'${esc(u.display||u.username)}')" title="O'chirish">🗑️ O'chirish</button>
+                <button class="pb pb-b" style="padding:4px 10px;font-size:12px" onclick="_editStudentCreds(${u.id})" title="Tahrirlash">✏️ Tahrirlash</button>
+                <button class="pb pb-r" style="padding:4px 10px;font-size:12px" onclick="_deleteStudent(${u.id})" title="O'chirish">🗑️ O'chirish</button>
               </td>
             </tr>`).join('')}
             ${!stus.length?'<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px">O\'quvchilar yo\'q</td></tr>':''}
@@ -5864,21 +5864,26 @@ async function _doCreateStudent(){
   }catch(e){alert('Server xatosi');}
 }
 
-function _editStudentCreds(uid, username, display){
+function _editStudentCreds(uid){
+  const u=_users.find(x=>x.id===uid);
+  if(!u){alert('Foydalanuvchi topilmadi');return;}
+  const display=u.display||u.username;
+  const username=u.username;
   const html=`<div style="display:flex;flex-direction:column;gap:12px">
-    <h3 style="margin:0;font-size:16px;color:#1d3557">✏️ "${display}" — login/parol tahrirlash</h3>
+    <h3 style="margin:0;font-size:16px;color:#1d3557">✏️ Tahrirlash: ${esc(display)}</h3>
     <div class="pf-row" style="flex-direction:column;align-items:stretch;gap:8px">
-      <label style="font-size:12px;font-weight:600;color:#6c757d">To'liq ism:</label>
-      <input class="pf-inp" id="_edit_stu_display" value="${display}" style="width:100%">
+      <label style="font-size:12px;font-weight:600;color:#6c757d">To'liq ism (familiya):</label>
+      <input class="pf-inp" id="_edit_stu_display" value="${esc(display)}" style="width:100%">
     </div>
     <div class="pf-row" style="flex-direction:column;align-items:stretch;gap:8px">
-      <label style="font-size:12px;font-weight:600;color:#6c757d">Login:</label>
-      <input class="pf-inp" id="_edit_stu_login" value="${username}" style="width:100%;background:#f1f3f5" readonly>
-      <span style="font-size:11px;color:#aaa">Login o'zgartirib bo'lmaydi</span>
+      <label style="font-size:12px;font-weight:600;color:#6c757d">Login (username):</label>
+      <input class="pf-inp" id="_edit_stu_login" value="${esc(username)}" style="width:100%">
+      <span style="font-size:11px;color:#aaa">Faqat lotin harflari va raqamlar. O'zgartirilishi mumkin.</span>
     </div>
     <div class="pf-row" style="flex-direction:column;align-items:stretch;gap:8px">
-      <label style="font-size:12px;font-weight:600;color:#6c757d">Yangi parol (bo'sh qoldirsangiz o'zgarmaydi):</label>
-      <input class="pf-inp" id="_edit_stu_pass" type="text" placeholder="Yangi parol..." style="width:100%">
+      <label style="font-size:12px;font-weight:600;color:#6c757d">Yangi parol:</label>
+      <input class="pf-inp" id="_edit_stu_pass" type="text" placeholder="Yangi parol kiriting..." style="width:100%">
+      <span style="font-size:11px;color:#aaa">Bo'sh qoldirsangiz eski parol saqlanadi</span>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
       <button class="pb pb-cancel" onclick="_closeModal()">Bekor</button>
@@ -5890,12 +5895,17 @@ function _editStudentCreds(uid, username, display){
 
 async function _doEditStudentCreds(uid){
   const display=document.getElementById('_edit_stu_display')?.value.trim();
+  const newLogin=document.getElementById('_edit_stu_login')?.value.trim().toLowerCase();
   const password=document.getElementById('_edit_stu_pass')?.value.trim();
   if(!display){alert('Ism kiriting');return;}
+  if(!newLogin||newLogin.length<3){alert('Login kamida 3 ta belgi bo\'lsin');return;}
+  if(!/^[a-z0-9_]+$/.test(newLogin)){alert('Login faqat lotin harflari va raqamlardan iborat bo\'lsin');return;}
   try{
-    // Update display name
-    await fetch(`/api/users/${uid}/update-display`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({display})});
+    // Update display name and username
+    const res=await fetch(`/api/users/${uid}/update-profile`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({display, username:newLogin})});
+    const data=await res.json();
+    if(!res.ok){alert(data.error||'Xato');return;}
     // Update password if provided
     if(password){
       if(password.length<4){alert('Parol kamida 4 ta belgi');return;}
@@ -5909,7 +5919,9 @@ async function _doEditStudentCreds(uid){
   }catch(e){alert('Server xatosi');}
 }
 
-async function _deleteStudent(uid, display){
+async function _deleteStudent(uid){
+  const u=_users.find(x=>x.id===uid);
+  const display=u?(u.display||u.username):'?';
   if(!confirm(`"${display}" o'quvchisini o'chirasizmi?\n\nBarcha xabarlari, natijalari va davomatlari ham o'chiriladi!`)) return;
   try{
     const res=await fetch(`/api/users/${uid}`,{method:'DELETE'});
