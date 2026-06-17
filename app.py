@@ -28,7 +28,10 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
 
 # O'qituvchi paroli — muhit o'zgaruvchisidan olinadi, standart qiymat faqat dev uchun
-TEACHER_PASSWORD = os.environ.get('TEACHER_PASSWORD', '200519992806')
+TEACHER_PASSWORD = os.environ.get('TEACHER_PASSWORD', '')
+if not TEACHER_PASSWORD:
+    TEACHER_PASSWORD = '200519992806'
+    logger.warning('⚠️ TEACHER_PASSWORD env o\'rnatilmagan! Standart parol ishlatilmoqda. Production da albatta o\'zgartiring!')
 UROK_MAGIC   = b'UROKFILE'
 UROK_VERSION = 2
 
@@ -1212,6 +1215,7 @@ def get_lessons():
     } for l in lessons])
 
 @app.route('/api/lessons', methods=['POST'])
+@teacher_required
 def create_lesson():
     d = request.json
     max_order = db.session.query(db.func.max(Lesson.order)).scalar() or 0
@@ -1231,6 +1235,7 @@ def update_lesson(lid):
     return jsonify({'ok': True})
 
 @app.route('/api/lessons/<int:lid>', methods=['DELETE'])
+@teacher_required
 def delete_lesson(lid):
     lesson = db.session.get(Lesson, lid)
     if not lesson: return jsonify({'error':'Not found'}), 404
@@ -1260,6 +1265,7 @@ def get_blocks(lid):
     return jsonify([b.to_dict() for b in blocks])
 
 @app.route('/api/blocks', methods=['POST'])
+@login_required
 def create_block():
     d = request.json
     max_order = db.session.query(db.func.max(Block.order)) \
@@ -1275,6 +1281,7 @@ def create_block():
     return jsonify(block.to_dict())
 
 @app.route('/api/blocks/<int:bid>', methods=['PUT'])
+@login_required
 def update_block(bid):
     block = db.session.get(Block, bid)
     if not block: return jsonify({'error':'Not found'}), 404
@@ -1285,6 +1292,7 @@ def update_block(bid):
     return jsonify(block.to_dict())
 
 @app.route('/api/blocks/<int:bid>', methods=['DELETE'])
+@login_required
 def delete_block(bid):
     block = db.session.get(Block, bid)
     if not block: return jsonify({'error':'Not found'}), 404
@@ -1293,6 +1301,7 @@ def delete_block(bid):
     return jsonify({'ok': True})
 
 @app.route('/api/blocks/reorder', methods=['POST'])
+@login_required
 def reorder_blocks():
     for item in request.json:
         b = db.session.get(Block, item['id'])
@@ -1309,6 +1318,7 @@ def get_progress(bid):
     return jsonify({'answers': json.loads(p.answers), 'score': p.score})
 
 @app.route('/api/progress/<int:bid>', methods=['POST'])
+@login_required
 def save_progress(bid):
     d = request.json
     p = db.session.execute(db.select(StudentProgress).filter_by(block_id=bid)).scalar_one_or_none()
@@ -1384,6 +1394,7 @@ def decode_urok_teacher():
 # ─── API: Natijalarni saqlash ─────────────────────────────────────────────────
 
 @app.route('/api/results', methods=['POST'])
+@login_required
 def save_result():
     """O'quvchi .urok natija faylini serverga yuboradi"""
     d = request.json or {}
@@ -1461,6 +1472,7 @@ def delete_result(rid):
 @app.route('/api/upload/audio', methods=['POST'])
 
 @app.route('/api/upload/audio', methods=['POST'])
+@login_required
 def upload_audio():
     f = request.files.get('file')
     if not f: return jsonify({'error': 'no file'}), 400
@@ -1474,6 +1486,7 @@ def upload_audio():
     return jsonify({'url': f'/static/audio/{fname}'})
 
 @app.route('/api/upload/image', methods=['POST'])
+@login_required
 def upload_image():
     f = request.files.get('file')
     if not f: return jsonify({'error': 'no file'}), 400
@@ -1487,6 +1500,7 @@ def upload_image():
     return jsonify({'url': f'/static/img/{fname}'})
 
 @app.route('/api/upload/video', methods=['POST'])
+@login_required
 def upload_video():
     f = request.files.get('file')
     if not f: return jsonify({'error': 'no file'}), 400
@@ -1554,6 +1568,7 @@ def get_users():
     return jsonify([u.to_dict() for u in users])
 
 @app.route('/api/users', methods=['POST'])
+@teacher_required
 def create_user():
     d = request.json
     if db.session.execute(db.select(User).filter_by(username=d['username'])).scalar_one_or_none():
@@ -1565,6 +1580,7 @@ def create_user():
     return jsonify(u.to_dict())
 
 @app.route('/api/users/<int:uid>', methods=['DELETE'])
+@teacher_required
 def delete_user(uid):
     u = db.session.get(User, uid)
     if not u: return jsonify({'error': 'not found'}), 404
@@ -1628,6 +1644,7 @@ def get_groups():
     return jsonify([g.to_dict() for g in groups])
 
 @app.route('/api/groups', methods=['POST'])
+@teacher_required
 def create_group():
     d = request.json
     g = Group(name=d['name'], owner_id=d['owner_id'])
@@ -1638,6 +1655,7 @@ def create_group():
     return jsonify(g.to_dict())
 
 @app.route('/api/groups/<int:gid>', methods=['DELETE'])
+@teacher_required
 def delete_group(gid):
     g = db.session.get(Group, gid)
     if not g: return jsonify({'error': 'not found'}), 404
@@ -1742,6 +1760,7 @@ def delete_message(mid):
     return jsonify({'ok': True})
 
 @app.route('/api/chat/upload-image', methods=['POST'])
+@login_required
 def chat_upload_image():
     """Chat uchun rasm yuklash"""
     f = request.files.get('file')
@@ -1767,6 +1786,7 @@ def _get_msg_room(msg):
 
 # ── Chat: Pin ───────────────────────────────────────────────
 @app.route('/api/chat/message/<int:mid>/pin', methods=['POST'])
+@login_required
 def pin_message(mid):
     msg = db.session.get(ChatMessage, mid)
     if not msg: return jsonify({'error': 'not found'}), 404
@@ -1786,6 +1806,7 @@ def unpin_message(mid):
 
 # ── Chat: Reactions ─────────────────────────────────────────
 @app.route('/api/chat/message/<int:mid>/react', methods=['POST'])
+@login_required
 def react_message(mid):
     d = request.json or {}
     emoji = d.get('emoji', '❤️')
@@ -1809,6 +1830,7 @@ def react_message(mid):
 
 # ── Chat: Read receipts ─────────────────────────────────────
 @app.route('/api/chat/mark-read', methods=['POST'])
+@login_required
 def mark_read():
     d = request.json or {}
     user_id = d.get('user_id')
@@ -1827,6 +1849,7 @@ def mark_read():
 
 # ── Chat: Voice upload ──────────────────────────────────────
 @app.route('/api/chat/upload-voice', methods=['POST'])
+@login_required
 def chat_upload_voice():
     f = request.files.get('file')
     if not f: return jsonify({'error': 'no file'}), 400
@@ -1839,6 +1862,7 @@ def chat_upload_voice():
 
 # ── Chat: File upload (max 10MB) ────────────────────────────
 @app.route('/api/chat/upload-file', methods=['POST'])
+@login_required
 def chat_upload_file():
     f = request.files.get('file')
     if not f: return jsonify({'error': 'no file'}), 400
@@ -1851,6 +1875,7 @@ def chat_upload_file():
 
 # ── Chat: Scheduled messages ────────────────────────────────
 @app.route('/api/chat/schedule', methods=['POST'])
+@login_required
 def schedule_message():
     d = request.json or {}
     sender = db.session.get(User, d.get('sender_id'))
@@ -1946,6 +1971,7 @@ def get_published_lesson(pid):
     return jsonify(p.to_dict(include_blocks=True))
 
 @app.route('/api/published-lessons', methods=['POST'])
+@teacher_required
 def publish_lesson():
     """Darslikni saytga yuklash (publish)"""
     d = request.json or {}
@@ -1980,6 +2006,7 @@ def publish_lesson():
     return jsonify(pub.to_dict())
 
 @app.route('/api/published-lessons/<int:pid>', methods=['PUT'])
+@teacher_required
 def update_published_lesson(pid):
     """Yuklangan darslikni yangilash (visibility, download, bloklarni sync)"""
     p = db.session.get(PublishedLesson, pid)
@@ -2006,6 +2033,7 @@ def update_published_lesson(pid):
     return jsonify(p.to_dict())
 
 @app.route('/api/published-lessons/<int:pid>', methods=['DELETE'])
+@teacher_required
 def delete_published_lesson(pid):
     """Yuklangan darslikni o'chirish"""
     d = request.json or {}
@@ -2041,6 +2069,7 @@ def get_lesson_comments(pid):
     return jsonify([c.to_dict() for c in comments])
 
 @app.route('/api/published-lessons/<int:pid>/comments', methods=['POST'])
+@login_required
 def add_lesson_comment(pid):
     d = request.json or {}
     user_id = d.get('user_id')
@@ -2121,6 +2150,7 @@ def get_announcements():
     return jsonify([a.to_dict() for a in items])
 
 @app.route('/api/announcements', methods=['POST'])
+@teacher_required
 def create_announcement():
     d = request.json
     a = Announcement(author_id=d['author_id'], title=d['title'],
@@ -2130,6 +2160,7 @@ def create_announcement():
     return jsonify(a.to_dict())
 
 @app.route('/api/announcements/<int:aid>', methods=['DELETE'])
+@teacher_required
 def delete_announcement(aid):
     a = db.session.get(Announcement, aid)
     if not a: return jsonify({'error': 'not found'}), 404
@@ -2152,6 +2183,7 @@ def get_schedule():
     return jsonify([s.to_dict() for s in items])
 
 @app.route('/api/schedule', methods=['POST'])
+@teacher_required
 def create_schedule():
     d = request.json
     s = Schedule(title=d['title'], event_type=d.get('event_type', 'lesson'),
@@ -2162,6 +2194,7 @@ def create_schedule():
     return jsonify(s.to_dict())
 
 @app.route('/api/schedule/<int:sid>', methods=['DELETE'])
+@teacher_required
 def delete_schedule(sid):
     s = db.session.get(Schedule, sid)
     if not s: return jsonify({'error': 'not found'}), 404
@@ -2177,6 +2210,7 @@ def get_resources():
     return jsonify([r.to_dict() for r in items])
 
 @app.route('/api/resources', methods=['POST'])
+@teacher_required
 def create_resource():
     d = request.json
     r = Resource(title=d['title'], res_type=d.get('res_type', 'link'),
@@ -2186,6 +2220,7 @@ def create_resource():
     return jsonify(r.to_dict())
 
 @app.route('/api/resources/<int:rid>', methods=['DELETE'])
+@teacher_required
 def delete_resource(rid):
     r = db.session.get(Resource, rid)
     if not r: return jsonify({'error': 'not found'}), 404
@@ -2193,6 +2228,7 @@ def delete_resource(rid):
     return jsonify({'ok': True})
 
 @app.route('/api/upload/resource', methods=['POST'])
+@login_required
 def upload_resource():
     f = request.files.get('file')
     if not f: return jsonify({'error': 'no file'}), 400
@@ -2259,6 +2295,7 @@ def get_videos():
     return jsonify([v.to_dict() for v in items])
 
 @app.route('/api/videos', methods=['POST'])
+@teacher_required
 def create_video():
     d = request.json
     v = VideoLesson(title=d['title'], url=d['url'],
@@ -2268,6 +2305,7 @@ def create_video():
     return jsonify(v.to_dict())
 
 @app.route('/api/videos/<int:vid>', methods=['DELETE'])
+@teacher_required
 def delete_video(vid):
     v = db.session.get(VideoLesson, vid)
     if not v: return jsonify({'error': 'not found'}), 404
@@ -2532,6 +2570,7 @@ def get_homework():
     return jsonify(result)
 
 @app.route('/api/homework', methods=['POST'])
+@teacher_required
 def create_homework():
     d = request.json
     hw = Homework(title=d['title'], description=d.get('description',''),
@@ -2542,6 +2581,7 @@ def create_homework():
     return jsonify(hw.to_dict())
 
 @app.route('/api/homework/<int:hid>', methods=['DELETE'])
+@teacher_required
 def delete_homework(hid):
     hw = db.session.get(Homework, hid)
     if not hw: return jsonify({'error': 'not found'}), 404
@@ -2549,6 +2589,7 @@ def delete_homework(hid):
     return jsonify({'ok': True})
 
 @app.route('/api/homework/<int:hid>/submit', methods=['POST'])
+@login_required
 def submit_homework(hid):
     d   = request.json
     sub = db.session.execute(
@@ -2594,6 +2635,7 @@ def get_hw_submissions(hid):
     return jsonify([s.to_dict() for s in subs])
 
 @app.route('/api/upload/homework', methods=['POST'])
+@login_required
 def upload_homework_file():
     f = request.files.get('file')
     if not f: return jsonify({'error': 'no file'}), 400
@@ -2617,6 +2659,7 @@ def get_online_tests():
     return jsonify([t.to_dict() for t in items])
 
 @app.route('/api/online-tests', methods=['POST'])
+@teacher_required
 def create_online_test():
     d = request.json
     t = OnlineTest(title=d['title'],
@@ -2627,6 +2670,7 @@ def create_online_test():
     return jsonify(t.to_dict())
 
 @app.route('/api/online-tests/<int:tid>', methods=['DELETE'])
+@teacher_required
 def delete_online_test(tid):
     t = db.session.get(OnlineTest, tid)
     if not t: return jsonify({'error': 'not found'}), 404
@@ -2658,6 +2702,7 @@ def stop_online_test(tid):
     return jsonify(t.to_dict())
 
 @app.route('/api/online-tests/<int:tid>/submit', methods=['POST'])
+@login_required
 def submit_online_test(tid):
     d   = request.json
     t   = db.session.get(OnlineTest, tid)
@@ -2710,7 +2755,7 @@ def progress_dashboard():
     for u in members:
         # StudentResult dan ball hisobi
         results = db.session.execute(
-            db.select(StudentResult).where(StudentResult.student_name.in_([u.display, u.username]))
+            db.select(StudentResult).where(db.or_(StudentResult.user_id == u.id, StudentResult.student_name.in_([u.display, u.username])))
         ).scalars().all()
         total_score = sum(r.total_score for r in results)
         max_score   = sum(r.max_score   for r in results)
@@ -2885,12 +2930,17 @@ def auth_logout():
 @app.route('/api/auth/change-password', methods=['POST'])
 def change_password():
     d   = request.json or {}
-    u   = db.session.get(User, d.get('user_id'))
+    # Foydalanuvchi faqat O'Z parolini o'zgartira oladi
+    uid = session.get('user_id') or d.get('user_id')
+    u   = db.session.get(User, uid)
     if not u: return jsonify({'error': 'not found'}), 404
     old = d.get('old_password','')
-    if u.password_hash and not u.check_password(old):
+    if not u.check_password(old):
         return jsonify({'ok': False, 'error': "Eski parol noto'g'ri"}), 401
-    u.set_password(d.get('new_password',''))
+    new_pwd = d.get('new_password', '')
+    if len(new_pwd) < 6:
+        return jsonify({'ok': False, 'error': "Yangi parol kamida 6 ta belgi bo'lsin"}), 400
+    u.set_password(new_pwd)
     db.session.commit()
     return jsonify({'ok': True})
 
@@ -2899,15 +2949,16 @@ def set_password_admin():
     """O'qituvchi boshqa foydalanuvchiga parol o'rnatadi — faqat teacher"""
     d    = request.json or {}
     # Tekshirish: so'rov qilgan odam teacher ekanligini
-    requester_id = d.get('requester_id') or session.get('user_id')
-    if requester_id:
-        requester = db.session.get(User, requester_id)
-        if not requester or requester.role != 'teacher':
-            return jsonify({'error': 'Faqat o\'qituvchi parol o\'zgartira oladi'}), 403
+    requester_id = session.get('user_id')
+    if not requester_id:
+        return jsonify({'error': 'Tizimga kiring'}), 401
+    requester = db.session.get(User, requester_id)
+    if not requester or requester.role != 'teacher':
+        return jsonify({'error': 'Faqat o\'qituvchi parol o\'zgartira oladi'}), 403
     u    = db.session.get(User, d.get('user_id'))
     if not u: return jsonify({'error': 'not found'}), 404
     new_pwd = d.get('password', '')
-    if not new_pwd or len(new_pwd) < 4:
+    if not new_pwd or len(new_pwd) < 6:
         return jsonify({'error': 'Parol kamida 4 ta belgi'}), 400
     u.set_password(new_pwd)
     db.session.commit()

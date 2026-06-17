@@ -10,10 +10,22 @@ def check_deps():
         import flask, flask_sqlalchemy, flask_socketio
     except ImportError:
         print("📦 Kerakli kutubxonalar o'rnatilmoqda...")
-        subprocess.check_call([
-            sys.executable, '-m', 'pip', 'install',
-            'flask', 'flask-sqlalchemy', 'flask-socketio', 'simple-websocket', '-q'
-        ])
+        # Virtual environment yaratish (agar mavjud bo'lmasa)
+        venv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.venv')
+        if not os.path.exists(venv_dir):
+            print("🔧 Virtual environment yaratilmoqda...")
+            subprocess.check_call([sys.executable, '-m', 'venv', venv_dir])
+        # venv ichidagi pip bilan o'rnatish
+        pip_path = os.path.join(venv_dir, 'bin', 'pip') if os.name != 'nt' else os.path.join(venv_dir, 'Scripts', 'pip.exe')
+        if os.path.exists(pip_path):
+            subprocess.check_call([pip_path, 'install',
+                'flask', 'flask-sqlalchemy', 'flask-socketio', 'simple-websocket', '-q'])
+            print(f"⚠️ Dasturni qayta ishga tushiring: {os.path.join(venv_dir, 'bin', 'python')} run.py")
+            sys.exit(0)
+        else:
+            # Fallback: global pip
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install',
+                'flask', 'flask-sqlalchemy', 'flask-socketio', 'simple-websocket', '-q'])
 
 def open_browser():
     time.sleep(1.5)
